@@ -62,6 +62,15 @@ export type CreditsMe = {
   block_reason: string | null;
   email: string;
   is_admin: boolean;
+  free_hints_remaining: number;
+  free_hints_expires_at: string | null;
+};
+
+export type FreeHintConsumeResult = {
+  consumed: boolean;
+  remaining: number;
+  expires_at: string | null;
+  reason?: "expired" | "exhausted" | null;
 };
 
 export type TopupRequest = {
@@ -179,6 +188,23 @@ export async function walletInfo(userId: number): Promise<WalletInfo> {
     },
   );
   return jsonOrThrow<WalletInfo>(res);
+}
+
+/** Consomme un free hint (upload gratuit). À appeler AVANT walletDebit côté /api/hint.
+ * Si {consumed:true} : on a décrémenté le compteur user, on n'a PAS débité MRU.
+ * Si {consumed:false} : free hints expirés ou épuisés → bascule sur MRU.
+ */
+export async function freeHintConsume(userId: number): Promise<FreeHintConsumeResult> {
+  const res = await fetch(`${BASE}/s2s/free-hint/consume`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": S2S_KEY,
+    },
+    body: JSON.stringify({ user_id: userId }),
+    cache: "no-store",
+  });
+  return jsonOrThrow<FreeHintConsumeResult>(res);
 }
 
 export async function walletDebit(input: {

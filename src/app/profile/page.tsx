@@ -105,6 +105,34 @@ export default async function ProfilePage() {
           </dl>
         </section>
 
+        {/* Free hints (offre signup) */}
+        {credits.free_hints_remaining > 0 && (
+          <section className="mt-5 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-indigo-700">
+                  🎁 Corrections gratuites
+                </h2>
+                <div className="mt-2 text-4xl font-extrabold text-indigo-900">
+                  {credits.free_hints_remaining}
+                  <span className="ml-2 text-base font-bold text-indigo-600">
+                    restantes
+                  </span>
+                </div>
+                {credits.free_hints_expires_at && (
+                  <div className="mt-1 text-xs text-indigo-700">
+                    Expire le {fmtDate(credits.free_hints_expires_at)}
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-slate-600">
+                  Profite-en avant la fin pour tester l&apos;app. Après, tu peux
+                  recharger ton portefeuille en MRU.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Portefeuille */}
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
@@ -121,7 +149,7 @@ export default async function ProfilePage() {
                   Valide jusqu&apos;au {fmtDateOnly(credits.credits_expire_at)}
                 </div>
               )}
-              {credits.block_reason && (
+              {credits.block_reason && !credits.free_hints_remaining && (
                 <div className="mt-2 inline-flex rounded-lg bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200">
                   ⛔ {credits.block_reason}
                 </div>

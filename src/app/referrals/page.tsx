@@ -100,14 +100,21 @@ export default async function ReferralsPage() {
               <strong>1.</strong> Partage ton code (ou ton lien) avec un ami.
             </li>
             <li>
-              <strong>2.</strong> Quand il s&apos;inscrit avec ton code, vous recevez chacun{" "}
-              <strong>{fmtMRU(info.bonus_signup_mru)} MRU</strong> de bonus.
+              <strong>2.</strong> Quand il s&apos;inscrit avec ton code, il reçoit{" "}
+              <strong>10 corrections gratuites pendant 24h</strong> 🎁
+              {info.bonus_signup_mru > 0 && (
+                <>
+                  {" "}et vous recevez chacun{" "}
+                  <strong>{fmtMRU(info.bonus_signup_mru)} MRU</strong>
+                </>
+              )}
+              .
             </li>
             <li>
-              <strong>3.</strong> À sa <em>première</em> recharge approuvée, vous recevez à nouveau :
+              <strong>3.</strong> À sa <em>première</em> recharge approuvée :
               <ul className="ml-5 mt-1 list-disc text-xs text-slate-600">
                 <li>
-                  <strong>{fmtMRU(info.bonus_paid_mru_referrer)} MRU</strong> pour toi
+                  <strong>{fmtMRU(info.bonus_paid_mru_referrer)} MRU</strong> pour toi (le parrain)
                 </li>
                 <li>
                   <strong>{fmtMRU(info.bonus_paid_mru_referred)} MRU</strong> pour ton ami

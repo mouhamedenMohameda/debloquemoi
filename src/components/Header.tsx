@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 
-import { AuthApiError, me, walletInfo } from "@/lib/auth-api";
+import { AuthApiError, creditsMe, walletInfo } from "@/lib/auth-api";
 import { getJwt, getSession } from "@/lib/session";
 import { logoutAction } from "@/app/(auth)/actions";
 
@@ -21,6 +21,17 @@ function formatMRU(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function formatExpiresIn(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  const ms = t - Date.now();
+  if (ms <= 0) return null;
+  const h = Math.floor(ms / 3_600_000);
+  if (h >= 1) return `${h}h restantes`;
+  const m = Math.max(1, Math.floor(ms / 60_000));
+  return `${m}min restantes`;
 }
 
 const NAV_LINKS = [
@@ -34,16 +45,16 @@ export async function Header() {
   const session = await getSession();
   if (!session) return null;
 
-  // Fetch en parallèle : solde + statut admin
+  // Fetch en parallèle : solde MRU (S2S) + credits/me (free hints + is_admin)
   const jwt = await getJwt();
-  const [walletRes, meRes] = await Promise.all([
+  const [walletRes, creditsRes] = await Promise.all([
     walletInfo(session.user_id).catch((e) => {
       if (!(e instanceof AuthApiError)) console.error("Header walletInfo error", e);
       return null;
     }),
     jwt
-      ? me(jwt).catch((e) => {
-          if (!(e instanceof AuthApiError)) console.error("Header me error", e);
+      ? creditsMe(jwt).catch((e) => {
+          if (!(e instanceof AuthApiError)) console.error("Header creditsMe error", e);
           return null;
         })
       : Promise.resolve(null),
@@ -51,7 +62,10 @@ export async function Header() {
 
   const balanceMru = walletRes?.balance_mru ?? null;
   const blockedReason = walletRes?.blocked_reason ?? null;
-  const isAdmin = !!meRes?.user.is_admin;
+  const isAdmin = !!creditsRes?.is_admin;
+  const freeHintsRemaining = creditsRes?.free_hints_remaining ?? 0;
+  const freeHintsExpires = creditsRes?.free_hints_expires_at ?? null;
+  const freeHintsActive = freeHintsRemaining > 0;
   const lowBalance = balanceMru !== null && balanceMru < 1;
 
   return (
@@ -71,6 +85,24 @@ export async function Header() {
         </Link>
 
         <div className="flex items-center gap-1.5">
+          {/* Badge prioritaire : free hints (offre signup) */}
+          {freeHintsActive && (
+            <Link
+              href="/profile"
+              title={`Tu as ${freeHintsRemaining} corrections gratuites${
+                formatExpiresIn(freeHintsExpires)
+                  ? ` — ${formatExpiresIn(freeHintsExpires)}`
+                  : ""
+              }`}
+              className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 ring-1 ring-indigo-200 transition hover:brightness-105"
+            >
+              <span aria-hidden>🎁</span>
+              <span className="tabular-nums">{freeHintsRemaining}</span>
+              <span className="hidden sm:inline">gratuits</span>
+            </Link>
+          )}
+
+          {/* Solde MRU — toujours visible (montre 0,00 si user n'a pas rechargé) */}
           {balanceMru !== null && (
             <Link
               href="/topup"

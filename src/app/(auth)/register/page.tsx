@@ -17,7 +17,7 @@ export default function RegisterPage() {
             Créer un compte
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Bonus offert à l&apos;inscription : <strong>5 MRU</strong> 🎁
+            🎁 <strong>10 corrections gratuites</strong> pendant 24h à l&apos;inscription
           </p>
         </div>
 
