@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Débloque-moi — Bac Mauritanie
 
-## Getting Started
+MVP d'une app qui aide les bacheliers mauritaniens en leur donnant des **indices progressifs** sur leurs exercices, sans donner la réponse trop vite.
 
-First, run the development server:
+## Démarrer
 
 ```bash
+cp .env.local.example .env.local
+# édite .env.local et mets ta GROQ_API_KEY (console.groq.com)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvre http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js 16 (App Router)** + **TypeScript** + **Tailwind v4**
+- **Groq** (Llama 3.3 70B par défaut) — voir `src/lib/groq.ts`
+- **KaTeX** pour le rendu des maths
 
-## Learn More
+### Étendre à une nouvelle matière
 
-To learn more about Next.js, take a look at the following resources:
+Tout est centralisé dans `src/lib/subjects.ts` :
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```ts
+{
+  id: "physique",
+  name: "Physique",
+  emoji: "⚛️",
+  pedagogy: "Tu es prof de physique du Bac C mauritanien...",
+  chapters: [
+    { id: "mecanique", name: "Mécanique" },
+  ],
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Aucun autre fichier à toucher : l'UI et l'API s'adaptent automatiquement.
 
-## Deploy on Vercel
+### Logique des 3 niveaux d'indices
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Voir `src/lib/prompts.ts` :
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Niveau 1** — Question d'orientation, aucune formule
+2. **Niveau 2** — Méthode + première étape, pas le résultat
+3. **Niveau 3** — Solution complète style Erraja/Amimath
+
+## Prochaines étapes
+
+- [ ] Photo d'énoncé (vision Groq)
+- [ ] RAG sur le corpus PDF (cours, devoirs, bacs blancs) pour ancrer les explications
+- [ ] Comptes utilisateurs + historique
+- [ ] Auto-évaluation hebdomadaire (Scénario 2)
+- [ ] Ajouter Physique, SVT, etc.
