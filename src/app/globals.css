@@ -16,6 +16,9 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  /* Empêche un scroll horizontal global causé par une équation math trop large.
+     Les blocs .katex-display ci-dessous gardent un scroll local au besoin. */
+  overflow-x: hidden;
 }
 
 /* Animation d'apparition pour les cartes d'indices */
@@ -57,4 +60,59 @@ body {
 }
 .dropzone-active {
   animation: pulse-ring 1.4s ease-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * KaTeX — mobile-first
+ * Sur petit écran, les équations display-mode dépassent souvent la largeur
+ * viewport. On les rétrécit + on autorise un scroll horizontal en fallback
+ * pour qu'aucune partie ne soit clippée.
+ * ─────────────────────────────────────────────────────────────────────*/
+
+/* Tous les blocs math display : autoriser le scroll horizontal si trop large.
+   La majorité tiendra sans scroll grâce au font-size réduit mobile ci-dessous. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.25rem 0;
+  margin: 0.5rem 0;
+}
+
+/* Cache la barre de scroll moche (mais le scroll reste fonctionnel) */
+.katex-display::-webkit-scrollbar {
+  height: 4px;
+}
+.katex-display::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.25);
+  border-radius: 2px;
+}
+
+/* Sur mobile, réduit la taille des équations pour qu'elles rentrent sans scroll */
+@media (max-width: 640px) {
+  .katex {
+    font-size: 0.85em;
+  }
+  .katex-display > .katex {
+    font-size: 0.95em;
+  }
+}
+@media (max-width: 380px) {
+  /* iPhone SE / petit écran : on serre encore un peu plus */
+  .katex {
+    font-size: 0.78em;
+  }
+  .katex-display > .katex {
+    font-size: 0.88em;
+  }
+}
+
+/* Garde-fou général : empêche le markdown rendu de provoquer un scroll
+   horizontal de toute la page sur mobile. Les blocs display-math au-dessus
+   gèrent leur propre scroll local. */
+.prose-math {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
 }
