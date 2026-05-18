@@ -6,6 +6,9 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+// Extension mhchem : ajoute le support de \ce{...} (équations chimiques),
+// \pu{...} (unités physiques), etc. Sans ça KaTeX ne connaît pas ces commandes.
+import "katex/dist/contrib/mhchem.js";
 import { sanitizeLatex, KATEX_MACROS } from "@/lib/latex-sanitize";
 
 /**

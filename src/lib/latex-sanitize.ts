@@ -233,7 +233,38 @@ export function sanitizeLatex(input: string): string {
   // Le modèle oublie souvent un `}` à la fin (\boxed{... sans } final).
   out = balanceBraces(out);
 
+  // --- Couche 8 : fix mhchem (\ce et \pu sans accolades) ---
+  // Le modèle écrit `\ceC3H8O` au lieu de `\ce{C3H8O}`. On ajoute les
+  // accolades pour que KaTeX+mhchem rende correctement.
+  out = fixMhchemBraces(out);
+
   return out;
+}
+
+/**
+ * Ajoute les accolades manquantes après `\ce` et `\pu` (notation mhchem pour
+ * chimie). Format attendu : `\ce{H2O}` ou `\pu{50 kg}`. Le modèle écrit
+ * souvent :
+ *   - `\ceH2O` (sans accolades, sans espace)   ← cas 1
+ *   - `\ce H2O` (avec espace mais sans accolades) ← cas 2
+ *   - `\ce\nH2O` (avec saut de ligne) ← cas 3
+ * Tous ces cas ne marchent pas avec mhchem. On les corrige.
+ */
+function fixMhchemBraces(input: string): string {
+  return (
+    input
+      // `\ce` : formules chimiques (pas de virgule/point ici)
+      .replace(
+        /\\ce(?!\{)[ \t]*([A-Za-z0-9^_{}+\-/]+)/g,
+        (_, body) => `\\ce{${body}}`,
+      )
+      // `\pu` : unités physiques (peut contenir 1,77 ou 1.77, espaces possibles
+      // mais on les ignore pour rester safe).
+      .replace(
+        /\\pu(?!\{)[ \t]*([A-Za-z0-9^_{}+\-/,.]+)/g,
+        (_, body) => `\\pu{${body}}`,
+      )
+  );
 }
 
 /**

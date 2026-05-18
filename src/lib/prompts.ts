@@ -16,76 +16,71 @@ const LEVEL_INSTRUCTIONS: Record<HintLevel, string> = {
 - Indique la première étape concrète.
 - Ne donne PAS le résultat final ni les calculs.`,
 
-  3: `Donne la SOLUTION COMPLÈTE, étape par étape, style correction Erraja/Amimath.
+  3: `Donne la SOLUTION COMPLÈTE en suivant **STRICTEMENT** le style des corrigés officiels IPN du Bac C mauritanien (auteurs : Dah ould Md Eloctar, Med ould Levdal, Med ould Sidi Salem — conseillers pédagogiques à l'IPN).
 
-⚠️ RÈGLES ABSOLUES DE FORMAT — à respecter SOUS PEINE D'ÉCHEC :
+⚠️ STYLE OBLIGATOIRE — corrigé Bac C mauritanien, **ULTRA-CONCIS** :
 
-A. **Sauts de ligne obligatoires** : un \`$$\` doit toujours être seul sur sa ligne, avec une ligne vide avant ET après. Pareil pour les titres \`##\`/\`###\` et les séparateurs \`---\`.
+1. **Numérotation simple** : utilise EXACTEMENT la numérotation de l'énoncé (\`1.\`, \`2.1\`, \`2.2\`, \`3.1\`...). PAS de "Étape 1 — Méthode → Calculs → Conclusion". Pas de "Vue d'ensemble".
 
-B. **LaTeX inline** : \`$...$\` uniquement. JAMAIS \`\\(...\\)\`.
+2. **Théorèmes nommés en UNE LIGNE inline**, pas dans des blockquotes décoratifs.
+   ✅ "D'après la conservation de la matière : ..."
+   ✅ "La relation fondamentale de la dynamique donne : $\\sum \\vec{F} = m\\vec{a}$"
+   ✅ "D'après l'équation bilan : $\\dfrac{n_{H_2O_2}}{2} = n_{O_2}$"
+   ❌ Pas de \`> **Rappel :**\` séparé sur 3 lignes.
 
-C. **LaTeX bloc** : \`$$...$$\` uniquement, jamais \`\\[...\\]\`.
+3. **Projections sur axes** systématiques :
+   "En projetant sur l'axe Ox on trouve : $0 + 0 - T = ma \\Rightarrow Kx + ma = 0$"
 
-D. **JAMAIS de \`$\` à l'intérieur d'un autre bloc math.**
+4. **Conditions initiales** en système d'équations :
+   $$\\begin{cases} x_0 = X_m \\cos\\varphi \\\\ V_0 = -X_m \\omega \\sin\\varphi \\end{cases}$$
 
-E. **Vérifie les accolades** : chaque \`{\` a son \`}\`. Surtout \`\\boxed{...}\`.
+5. **Applications numériques** courtes avec "A.N : ... unité" :
+   "A.N : $R = 9{,}4$ cm"
+   "A.N : $Q = 0{,}38$"
 
-F. **Environnements LaTeX** (aligned, cases, matrix) → DOIVENT être dans \`$$\\begin{...}...\\end{...}$$\`.
+6. **Pas de section "À retenir"**, pas de récap final décoratif. Juste les calculs et la réponse encadrée.
 
-==========================================
-RÈGLES DE STRUCTURE (à respecter strictement)
-==========================================
+⚠️ FORMAT LATEX — à respecter sous peine d'échec :
 
-1. **Identifier d'abord ce qui est demandé** (1 phrase, en italique) — quoi prouver/calculer/construire.
+A. \`$$\` toujours seul sur sa ligne (ligne vide avant ET après).
+B. LaTeX inline \`$...$\` uniquement. JAMAIS \`\\(...\\)\`.
+C. LaTeX bloc \`$$...$$\` uniquement. JAMAIS \`\\[...\\]\`.
+D. JAMAIS de \`$\` dans un autre bloc math.
+E. Vérifie chaque \`{\` a son \`}\` (surtout \`\\boxed{...}\`).
+F. Environnements (aligned, cases) dans \`$$\\begin{...}...\\end{...}$$\`.
 
-2. **Méthode** (1-2 phrases) — l'idée stratégique.
+=== EXEMPLE DE STYLE ATTENDU (extrait du corrigé Bac C 2002, Ex.3, IPN) ===
 
-3. **Résolution** : utilise des sous-titres \`### Étape 1 — ...\`, \`### Étape 2 — ...\` etc. Une étape = une transformation logique.
+\`\`\`
+1. La condition d'équilibre : $\\sum \\vec{F} = \\vec{0} \\Leftrightarrow \\vec{P} + \\vec{T} + \\vec{R} = \\vec{0}$
 
-4. **Rappels de cours** : à PLACER dans un blockquote \`> **Rappel :** énoncé complet de la règle\`.
-   ⚠️ CHAQUE règle est rappelée **UNE SEULE FOIS** dans toute la réponse. Si tu la réutilises plus loin, dis simplement "par le rappel précédent" ou nomme-la, **ne la réécris JAMAIS**.
+En projetant sur l'axe Ox on trouve : $0 + 0 + T = 0 \\Rightarrow K\\Delta\\ell = 0 \\therefore \\Delta\\ell = 0$.
 
-5. **Conclusion** : section \`### Conclusion\` avec le résultat **en gras**.
+Le ressort est ni comprimé ni tendu.
 
-6. **💡 À retenir** : section finale, 1-2 puces clés.
+2. L'équation différentielle du mouvement : $\\sum \\vec{F} = m\\vec{a} \\Leftrightarrow \\vec{P} + \\vec{T} + \\vec{R} = m\\vec{a}$
 
-==========================================
-RÈGLES DE FOND
-==========================================
+En projetant sur l'axe Ox : $0 + 0 - T = ma \\Rightarrow Kx + ma = 0$ d'où $a + \\dfrac{K}{m}x = 0$.
 
-- **Aucune règle utilisée sans rappel préalable.** Mais : *un seul rappel par règle*, point.
-- **Aucune étape implicite** : nomme chaque transformation ("on factorise", "on identifie parties réelles", etc.).
-- **Aucun raccourci de calcul** : un bachelier doit pouvoir suivre.
-- **LaTeX — RÈGLE ABSOLUE** : **chaque** commande LaTeX (\`\\frac\`, \`\\sqrt\`, \`\\ge\`, \`\\le\`, \`\\quad\`, \`\\int\`, \`\\lim\`, \`\\overrightarrow\`, \`\\mathbb\`, \`\\boxed\`, \`x^2\`, \`x_n\`, etc.) **DOIT** être entourée de \`$...$\` (inline) ou \`$$...$$\` (bloc).
-  - ✅ "Pour tout $x > 2$, on a $\\sqrt{x^2-4} \\ge 0$, donc $f$ est définie."
-  - ❌ "Pour tout x > 2, on a \\sqrt{x^2-4} \\ge 0, donc f est définie." (le LaTeX s'affichera en brut)
-  - ❌ "$$ x^2-4 \\ge 0 \\quad \\Longrightarrow \\quad \\sqrt{x^2-4} \\ge 0 $$" écrit sans les \`$$\` autour
-  - **Tu n'utilises JAMAIS** \`\\[ ... \\]\` ni \`\\( ... \\)\` — uniquement \`$...$\` et \`$$...$$\`.
-  - **Tu n'utilises JAMAIS** \`;\` comme séparateur dans une formule LaTeX. Utilise un espace normal ou \`\\,\`.
-- **Markdown** : les titres (\`#\`, \`##\`, \`###\`) **DOIVENT** commencer en début de ligne, avec une ligne vide avant et après. Ne mets JAMAIS un \`###\` au milieu d'un paragraphe.
-- **Pas de schéma ASCII** des courbes. Décris la courbe en mots (point d'entrée, monotonie, asymptotes, point de sortie) si nécessaire, mais ne dessine pas avec des \`|\` et des \`/\`.
-- **Sauts de ligne** : laisse une ligne vide entre chaque section. Pas de murs de texte.
-- **Va jusqu'au bout** — pas de limite de longueur, mais pas de remplissage non plus.
+Cette équation a pour solution : $x = X_m \\cos(\\omega t + \\varphi)$ où $\\omega = \\sqrt{\\dfrac{K}{m}}$, $V_0 = -X_m \\omega \\sin\\varphi$.
 
-EXEMPLE de structure attendue :
+À $t = 0$ :
 
-> *On veut montrer que K est le milieu de [AB].*
->
-> **Méthode** : on exprime $\\overrightarrow{AK}$ en fonction de $\\overrightarrow{AB}$.
->
-> ### Étape 1 — Utiliser la définition du barycentre
->
-> > **Rappel :** Le barycentre $G$ d'un système $(A_i, m_i)_{1\\le i\\le n}$ vérifie $\\sum m_i \\overrightarrow{GA_i} = \\vec 0$.
->
-> Ici, $K$ est le barycentre de $(A, 1), (B, 1)$, donc... [calculs]
->
-> ### Étape 2 — ...
->
-> ### Conclusion
->
-> **K est le milieu de [AB].** $\\blacksquare$
->
-> **💡 À retenir** : ...`,
+$$\\begin{cases} x_0 = X_m \\cos\\varphi \\\\ V_0 = -X_m \\omega \\sin\\varphi \\end{cases}$$
+
+$\\Rightarrow \\varphi = \\dfrac{\\pi}{2}$ rad, $X_m = 5 \\times 10^{-3}$ m.
+
+D'où l'équation horaire :
+
+$$\\boxed{x = 5 \\times 10^{-3} \\cos\\left(6{,}25\\, t + \\dfrac{\\pi}{2}\\right) \\text{ m}}$$
+\`\`\`
+
+RAPPELS DE FOND :
+- Aucune règle utilisée sans la nommer (en UNE ligne inline, pas un blockquote).
+- Aucune étape implicite : nomme chaque transformation ("on factorise", "on projette sur Ox"...).
+- Va jusqu'au bout. Pas de remplissage.
+- Pas de schéma ASCII des courbes : décris en mots si besoin.
+- Tableau d'avancement et tableaux de valeurs : utilise les tables Markdown (\`| ... | ... |\`).`,
 };
 
 export function buildSystemPrompt(subject: Subject, chapter?: Chapter): string {

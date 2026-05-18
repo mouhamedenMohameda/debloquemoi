@@ -53,22 +53,33 @@ function toUsage(
   };
 }
 
+// Plafond généreux par défaut (16k tokens) : sans ça, Groq applique un plafond
+// par défaut (souvent 8k) qui tronque les réponses longues (exercices à plusieurs
+// questions, démonstrations détaillées, etc.).
+const DEFAULT_MAX_TOKENS = 16384;
+
 export async function chat(
   messages: ChatMessage[],
   opts: { model?: string; maxTokens?: number } = {},
-): Promise<{ content: string; usage: Usage }> {
+): Promise<{ content: string; usage: Usage; finishReason?: string }> {
   const model = opts.model ?? DEFAULT_MODEL;
   const completion = await client().chat.completions.create({
     model,
     messages,
     temperature: 0.4,
-    // Pas de plafond par défaut : on laisse le modèle aller au bout de sa réponse.
-    ...(opts.maxTokens ? { max_completion_tokens: opts.maxTokens } : {}),
+    max_completion_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
   });
+  const finishReason = completion.choices[0]?.finish_reason;
+  if (finishReason === "length" && process.env.NODE_ENV !== "production") {
+    console.warn(
+      `[groq] Response truncated at ${completion.usage?.completion_tokens} tokens. Consider increasing max.`,
+    );
+  }
   const raw = completion.choices[0]?.message?.content ?? "";
   return {
     content: stripThinking(raw),
     usage: toUsage(completion.usage, model),
+    finishReason,
   };
 }
 
