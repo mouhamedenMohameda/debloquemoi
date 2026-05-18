@@ -1,11 +1,9 @@
 /**
  * Header — Server Component.
  *
- * Affiche :
- *  - le logo / titre + email
- *  - les liens de navigation (Accueil, Recharger, Parrainage, Compte, Admin si is_admin)
- *  - le badge "solde MRU" récupéré en S2S depuis auth-api
- *  - un bouton "Se déconnecter" (Server Action)
+ * Mobile-first :
+ *  - barre fine en haut (logo + MRU + logout) — minimaliste sur mobile
+ *  - sous-barre de nav (icônes seules sur mobile, icônes+texte dès sm:)
  *
  * Si pas de session, on ne rend rien (les pages /login et /register ont leur
  * propre layout). Le proxy.ts (middleware) redirige déjà vers /login pour les
@@ -58,28 +56,27 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
-        <Link href="/" className="flex items-center gap-2 min-w-0">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-500 text-sm text-white shadow-md shrink-0">
+      {/* Ligne 1 — logo + badge + logout, ultra-compact sur mobile */}
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 py-1.5 sm:px-4 sm:py-2">
+        <Link href="/" className="flex min-w-0 items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-500 text-xs text-white shadow-sm">
             🎓
           </span>
-          <div className="min-w-0 hidden sm:block">
-            <div className="text-sm font-extrabold text-slate-900 leading-tight truncate">
+          <div className="hidden min-w-0 sm:block">
+            <div className="truncate text-sm font-extrabold leading-tight text-slate-900">
               Débloque-moi
             </div>
-            <div className="text-[10px] text-slate-500 truncate">
-              {session.email}
-            </div>
+            <div className="truncate text-[10px] text-slate-500">{session.email}</div>
           </div>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {balanceMru !== null && (
             <Link
               href="/topup"
               title={blockedReason ?? "Solde de ton portefeuille — clique pour recharger"}
               className={[
-                "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition hover:brightness-105",
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 transition hover:brightness-105",
                 blockedReason
                   ? "bg-red-50 text-red-700 ring-red-200"
                   : lowBalance
@@ -88,7 +85,8 @@ export async function Header() {
               ].join(" ")}
             >
               <span aria-hidden>{blockedReason ? "⛔" : lowBalance ? "⚠️" : "💰"}</span>
-              <span>{formatMRU(balanceMru)} MRU</span>
+              <span className="tabular-nums">{formatMRU(balanceMru)}</span>
+              <span>MRU</span>
             </Link>
           )}
 
@@ -96,26 +94,27 @@ export async function Header() {
             <button
               type="submit"
               title="Se déconnecter"
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.97]"
+              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95"
             >
-              <span className="hidden sm:inline">Se déconnecter</span>
+              <span className="hidden sm:inline">Déconnexion</span>
               <span className="sm:hidden" aria-hidden>🚪</span>
             </button>
           </form>
         </div>
       </div>
 
-      {/* Sous-barre de navigation — scrollable horizontalement sur mobile */}
-      <nav className="mx-auto max-w-5xl overflow-x-auto px-4 pb-2">
-        <ul className="flex gap-1.5 whitespace-nowrap text-xs">
+      {/* Ligne 2 — nav (icônes seules sur mobile) */}
+      <nav className="mx-auto max-w-5xl overflow-x-auto px-3 pb-1.5 sm:px-4 sm:pb-2">
+        <ul className="flex gap-1 whitespace-nowrap text-[11px] sm:gap-1.5 sm:text-xs">
           {NAV_LINKS.map((l) => (
             <li key={l.href}>
               <Link
                 href={l.href}
-                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-200"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700 transition hover:bg-slate-200 sm:px-3 sm:py-1.5"
+                title={l.label}
               >
                 <span aria-hidden>{l.icon}</span>
-                <span>{l.label}</span>
+                <span className="hidden sm:inline">{l.label}</span>
               </Link>
             </li>
           ))}
@@ -123,10 +122,11 @@ export async function Header() {
             <li>
               <Link
                 href="/admin"
-                className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1.5 font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white transition hover:bg-slate-800 sm:px-3 sm:py-1.5"
+                title="Admin"
               >
                 <span aria-hidden>🛡️</span>
-                <span>Admin</span>
+                <span className="hidden sm:inline">Admin</span>
               </Link>
             </li>
           )}

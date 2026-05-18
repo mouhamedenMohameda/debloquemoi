@@ -697,42 +697,30 @@ export default function Home() {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 text-white shadow-lg">
-              🎓
-            </div>
-            <div>
-              <div className="text-sm font-bold text-slate-900">Débloque-moi</div>
-              <div className="text-[11px] text-slate-500">Bac Mauritanie</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            {totalMRU > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
-                <span>💸</span>
-                {formatMRU(totalMRU)} MRU
+      <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6 sm:py-10">
+        {/* Toolbar : compteur de coût local + bouton Historique (non-sticky, plus léger sur mobile) */}
+        <div className="mb-4 flex items-center justify-end gap-2 text-xs text-slate-500 sm:mb-6">
+          {totalMRU > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+              <span aria-hidden>💸</span>
+              <span>{formatMRU(totalMRU)} MRU</span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition active:scale-95 hover:bg-slate-50"
+            title="Voir l'historique"
+          >
+            📚 <span className="hidden sm:inline">Historique</span>
+            {savedSessions.length > 0 && (
+              <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
+                {savedSessions.length}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition active:scale-95 hover:bg-slate-50"
-              title="Voir l'historique"
-            >
-              📚 Historique
-              {savedSessions.length > 0 && (
-                <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
-                  {savedSessions.length}
-                </span>
-              )}
-            </button>
-          </div>
+          </button>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
         <section className="mb-8 text-center sm:mb-10">
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
             Bloqué sur un exercice ?
