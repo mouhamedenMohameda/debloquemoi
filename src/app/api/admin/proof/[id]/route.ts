@@ -53,12 +53,27 @@ export async function GET(
     );
   }
 
-  // Re-stream le body au browser en préservant le content-type
+  // ─── Forcer le bon Content-Type ────────────────────────────────────────
+  // auth-api renvoie application/octet-stream → Safari refuse de l'afficher
+  // comme <img>. On déduit le MIME à partir de l'extension du filename dans
+  // le header Content-Disposition.
+  const EXT_MIME: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    gif: "image/gif",
+  };
+
   const headers = new Headers();
-  const ct = upstream.headers.get("content-type");
-  if (ct) headers.set("content-type", ct);
-  const cd = upstream.headers.get("content-disposition");
-  if (cd) headers.set("content-disposition", cd);
+  const cd = upstream.headers.get("content-disposition") ?? "";
+  const fnameMatch = cd.match(/filename="?([^";]+)"?/i);
+  const ext = fnameMatch?.[1]?.split(".").pop()?.toLowerCase() ?? "";
+  const mime = EXT_MIME[ext] ?? "image/jpeg"; // fallback raisonnable pour MVP
+
+  headers.set("content-type", mime);
+  // On affiche en inline (pas téléchargement)
+  headers.set("content-disposition", `inline${fnameMatch ? `; filename="${fnameMatch[1]}"` : ""}`);
   // Cache court côté browser pour éviter de re-télécharger pendant la review
   headers.set("cache-control", "private, max-age=60");
 

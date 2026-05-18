@@ -11,8 +11,8 @@ export const metadata = {
 // Numéros de paiement (Bankily / Sedad / Masrvi)
 // TODO: déplacer dans une config admin via auth-api quand on aura plusieurs comptes.
 const PAYMENT_CHANNELS = [
-  { label: "Bankily", value: "+222 36 12 34 56", icon: "📱" },
-  { label: "Sedad", value: "+222 22 12 34 56", icon: "💳" },
+  { label: "Bankily", value: "42986738", icon: "📱" },
+  { label: "Sedad", value: "32164356", icon: "💳" },
 ];
 
 function StatusBadge({ status }: { status: TopupRequest["status"] }) {
