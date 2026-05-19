@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SUBJECTS } from "@/lib/subjects";
 import { MathText } from "@/components/MathText";
-import { costFor, formatMRU } from "@/lib/pricing";
+import {
+  MIN_HINT_BALANCE_MRU,
+  OCR_FLAT_COST_MRU,
+  costFor,
+  formatMRU,
+} from "@/lib/pricing";
 
 type Usage = { prompt: number; completion: number; total: number; model: string };
 type HintLevel = 1 | 2 | 3;
@@ -72,11 +77,25 @@ function relativeTime(t: number): string {
   return new Date(t).toLocaleDateString("fr-FR");
 }
 
-type HomeClientProps = { userId: number };
+type HomeClientProps = {
+  userId: number;
+  balanceMru: number;
+  freeHintsRemaining: number;
+};
 
-export default function HomeClient({ userId }: HomeClientProps) {
+export default function HomeClient({
+  userId,
+  balanceMru,
+  freeHintsRemaining,
+}: HomeClientProps) {
   const HISTORY_KEY = historyKeyFor(userId);
   const router = useRouter();
+  // Nombre maximum d'OCR qu'on peut lancer avec le solde courant :
+  // chaque photo = 1 free hint OU 1 MRU. Les photos déjà en file
+  // « réservent » un crédit chacune (refus si on tente d'en queue de
+  // plus). Le serveur refera la vérif à l'extraction.
+  const maxOcrCalls =
+    freeHintsRemaining + Math.floor(balanceMru / OCR_FLAT_COST_MRU);
   const [subjectId, setSubjectId] = useState(SUBJECTS[0].id);
   const subject = useMemo(
     () => SUBJECTS.find((s) => s.id === subjectId)!,
@@ -193,6 +212,10 @@ export default function HomeClient({ userId }: HomeClientProps) {
   // Upload = preview seulement. La transcription (OCR + débit) ne se déclenche
   // que lorsque l'utilisateur appuie sur « Extraire le texte ». Ça permet de
   // changer une photo mal cadrée sans avoir été débité.
+  // Nombre de photos déjà en attente (toutes cibles confondues).
+  const pendingCount = pendingImages.length + pendingCorrectionImages.length;
+  const remainingOcrCalls = Math.max(0, maxOcrCalls - pendingCount);
+
   const queueImage = useCallback(
     async (
       file: File,
@@ -207,13 +230,25 @@ export default function HomeClient({ userId }: HomeClientProps) {
         setError("Image trop lourde (>6 MB).");
         return { ok: false };
       }
+      if (remainingOcrCalls <= 0) {
+        if (maxOcrCalls === 0) {
+          setError(
+            `Solde insuffisant pour transcrire des photos. Il te faut au moins ${OCR_FLAT_COST_MRU} MRU par photo (ou des corrections gratuites).`,
+          );
+        } else {
+          setError(
+            `Tu as déjà ${pendingCount} photo${pendingCount > 1 ? "s" : ""} en attente — c'est le maximum pour ton solde actuel (${maxOcrCalls} max). Extrais-les d'abord ou recharge.`,
+          );
+        }
+        return { ok: false };
+      }
       const dataUrl = await fileToDataUrl(file);
       const setQueue =
         target === "correction" ? setPendingCorrectionImages : setPendingImages;
       setQueue((p) => [...p, dataUrl]);
       return { ok: true };
     },
-    [],
+    [maxOcrCalls, pendingCount, remainingOcrCalls],
   );
 
   // Transcrit toutes les photos en attente d'une cible. Chaque image
@@ -879,11 +914,26 @@ export default function HomeClient({ userId }: HomeClientProps) {
                 📷 Prendre une photo
               </PhotoButton>
             </div>
+            <p className="mt-1.5 text-[10px] text-slate-500">
+              {maxOcrCalls === 0 ? (
+                <>
+                  ⚠️ Solde insuffisant pour transcrire — il te faut au moins{" "}
+                  {OCR_FLAT_COST_MRU} MRU par photo.
+                </>
+              ) : (
+                <>
+                  Tu peux mettre en attente jusqu&apos;à {remainingOcrCalls}{" "}
+                  photo{remainingOcrCalls > 1 ? "s" : ""} avec ton solde
+                  actuel.
+                </>
+              )}
+            </p>
 
             {pendingImages.length > 0 && (
               <PendingImageList
                 previews={pendingImages}
                 loading={ocrLoading}
+                freeHintsRemaining={freeHintsRemaining}
                 onRemove={(i) =>
                   setPendingImages((p) => p.filter((_, idx) => idx !== i))
                 }
@@ -962,6 +1012,10 @@ export default function HomeClient({ userId }: HomeClientProps) {
                 <PendingImageList
                   previews={pendingCorrectionImages}
                   loading={correctionOcrLoading}
+                  freeHintsRemaining={Math.max(
+                    0,
+                    freeHintsRemaining - pendingImages.length,
+                  )}
                   onRemove={(i) =>
                     setPendingCorrectionImages((p) =>
                       p.filter((_, idx) => idx !== i),
@@ -1067,6 +1121,29 @@ export default function HomeClient({ userId }: HomeClientProps) {
             </div>
           )}
 
+          {/* Indication de coût */}
+          {canSubmit && (
+            <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 ring-1 ring-slate-200">
+              <span aria-hidden>💰</span>
+              {freeHintsRemaining > 0 ? (
+                <>
+                  Prochain indice :{" "}
+                  <strong className="text-indigo-700">gratuit</strong> ·{" "}
+                  {freeHintsRemaining} restant
+                  {freeHintsRemaining > 1 ? "s" : ""}
+                </>
+              ) : (
+                <>
+                  Prochain indice : ≈{" "}
+                  <strong className="text-slate-900">
+                    {MIN_HINT_BALANCE_MRU} MRU
+                  </strong>{" "}
+                  (min. requis)
+                </>
+              )}
+            </p>
+          )}
+
           {/* Boutons d'action */}
           {(() => {
             const fanOutMode =
@@ -1074,7 +1151,7 @@ export default function HomeClient({ userId }: HomeClientProps) {
             const explainMode = mode === "explain";
             const correctionReady = correction.trim().length >= 3;
             return (
-              <div className="mt-5 flex flex-wrap items-stretch gap-2">
+              <div className="mt-3 flex flex-wrap items-stretch gap-2">
                 {explainMode ? (
                   // Mode "Expliquer une correction" : un seul bouton
                   <button
@@ -1449,6 +1526,7 @@ function PhotoButton({
 function PendingImageList({
   previews,
   loading,
+  freeHintsRemaining,
   onRemove,
   onClearAll,
   onExtract,
@@ -1456,6 +1534,7 @@ function PendingImageList({
 }: {
   previews: string[];
   loading: boolean;
+  freeHintsRemaining: number;
   onRemove: (index: number) => void;
   onClearAll: () => void;
   onExtract: () => void;
@@ -1463,6 +1542,18 @@ function PendingImageList({
 }) {
   const count = previews.length;
   if (count === 0) return null;
+  // Combien de photos pourront utiliser un free hint vs MRU :
+  const willUseFree = Math.min(count, freeHintsRemaining);
+  const willUseMru = count - willUseFree;
+  const mruCost = willUseMru * OCR_FLAT_COST_MRU;
+  let costSummary: string;
+  if (willUseFree > 0 && willUseMru > 0) {
+    costSummary = `${willUseFree} gratuite${willUseFree > 1 ? "s" : ""} + ${mruCost} MRU`;
+  } else if (willUseFree > 0) {
+    costSummary = `${willUseFree} gratuite${willUseFree > 1 ? "s" : ""}`;
+  } else {
+    costSummary = `${mruCost} MRU`;
+  }
   return (
     <div className="mt-3 space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -1516,12 +1607,12 @@ function PendingImageList({
             <Spinner /> Transcription…
           </>
         ) : (
-          <>📝 Extraire le texte ({count})</>
+          <>📝 Extraire le texte — {costSummary}</>
         )}
       </button>
       <p className="text-[10px] text-amber-700/80">
-        Vérifie d&apos;abord que la photo est nette. La transcription consomme
-        une correction gratuite (ou ton solde MRU).
+        Forfait {OCR_FLAT_COST_MRU} MRU par photo, peu importe la longueur du
+        texte. Vérifie d&apos;abord que les photos sont nettes.
       </p>
     </div>
   );

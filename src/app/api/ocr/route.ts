@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { unitsForUsage } from "@/lib/billing";
+import { mruToUnits } from "@/lib/billing";
 import { extractTextFromImage } from "@/lib/groq";
 import {
   AuthApiError,
@@ -8,7 +8,10 @@ import {
   walletDebit,
   walletInfo,
 } from "@/lib/auth-api";
+import { OCR_FLAT_COST_MRU } from "@/lib/pricing";
 import { getSession } from "@/lib/session";
+
+const OCR_FLAT_COST_UNITS = mruToUnits(OCR_FLAT_COST_MRU);
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -86,6 +89,17 @@ export async function POST(req: NextRequest) {
           { status: 402 },
         );
       }
+      // Tarif forfaitaire : 1 MRU par photo. Refuse upfront si solde < 1 MRU.
+      if (w.balance_mru < OCR_FLAT_COST_MRU) {
+        return NextResponse.json(
+          {
+            error: `Il te faut au moins ${OCR_FLAT_COST_MRU} MRU pour extraire une photo. Recharge ton portefeuille.`,
+            blocked: true,
+            balance_mru: w.balance_mru,
+          },
+          { status: 402 },
+        );
+      }
     } catch (e) {
       if (e instanceof AuthApiError && e.status === 404) {
         return NextResponse.json(
@@ -121,17 +135,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ─── 5. Débit du portefeuille après succès Groq (sauf si free hint) ──
-  const units = unitsForUsage(usage);
+  // ─── 5. Débit forfaitaire 1 MRU (sauf si free hint) ───────────────────
+  const units = OCR_FLAT_COST_UNITS;
   let balanceAfter: number | undefined;
   let debitStatus: "ok" | "skipped" | "failed" = "skipped";
-  if (!freeHintUsed && units > 0) {
+  if (!freeHintUsed) {
     try {
       const r = await walletDebit({
         user_id: session.user_id,
         amount_units: units,
         external_ref: `ocr-${Date.now()}`,
-        note: "OCR énoncé",
+        note: "OCR énoncé (forfait)",
       });
       balanceAfter = r.balance_mru;
       debitStatus = "ok";

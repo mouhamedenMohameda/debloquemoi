@@ -15,6 +15,7 @@ import {
   walletDebit,
   walletInfo,
 } from "@/lib/auth-api";
+import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getSession } from "@/lib/session";
 
@@ -122,6 +123,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { error: w.blocked_reason, blocked: true, balance_mru: w.balance_mru },
           { status: 402 }, // Payment Required
+        );
+      }
+      // Seuil minimum : on refuse upfront si le solde ne couvre pas un
+      // hint typique. Évite le découvert systématique sur les Solutions
+      // complètes qui coûtent souvent ~0.5 MRU.
+      if (w.balance_mru < MIN_HINT_BALANCE_MRU) {
+        return NextResponse.json(
+          {
+            error: `Il te faut au moins ${MIN_HINT_BALANCE_MRU} MRU pour demander un indice. Recharge ou utilise tes corrections gratuites.`,
+            blocked: true,
+            balance_mru: w.balance_mru,
+          },
+          { status: 402 },
         );
       }
     } catch (e) {

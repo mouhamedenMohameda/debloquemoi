@@ -10,6 +10,14 @@ export const USD_TO_MRU = 40;
 // 2 = on charge le double du coût IA (marge brute 50%).
 export const PRICE_MARKUP = 2;
 
+// Tarification forfaitaire (prévisible pour le user — pas de surprise selon
+// la longueur du texte généré).
+//   - OCR : 1 MRU par photo, peu importe la taille du texte transcrit
+//   - Hint : pas de forfait (débit du coût réel) mais solde minimum 0.5 MRU
+//     requis pour démarrer la requête
+export const OCR_FLAT_COST_MRU = 1.0;
+export const MIN_HINT_BALANCE_MRU = 0.5;
+
 type ModelPrice = {
   inputPerMillion: number; // USD / 1M tokens
   outputPerMillion: number;
