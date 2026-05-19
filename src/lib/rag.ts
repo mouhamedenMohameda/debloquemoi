@@ -176,15 +176,20 @@ function extractYearFromChunkText(
 
 /**
  * À partir d'une liste de chunks (triés par pertinence décroissante), renvoie
- * la référence d'examen la plus pertinente. Si le chunk top vient d'une
- * compilation (plage AAAA-BBBB), on cherche l'année précise dans son texte.
+ * la référence d'examen la plus pertinente AVEC ANNÉE EXACTE.
+ *
+ * - Si le chunk top vient d'un PDF d'année individuelle → retourne directement.
+ * - Si le chunk vient d'une compilation (plage AAAA-BBBB) → on tente
+ *   d'extraire l'année précise depuis le texte. Si trouvée, on retourne.
+ *   Si pas trouvée, on passe au chunk suivant.
+ * - Si aucun chunk top ne donne d'année exacte → renvoie null (pas de badge),
+ *   plutôt qu'une plage vague qui n'apporte rien à l'utilisateur.
  */
 export function bestExamRef(chunks: RagChunk[], minScore = 0.5): string | null {
   for (const c of chunks) {
     if (c.score < minScore) continue;
     const baseRef = parseExamRef(c.source);
     if (!baseRef) continue;
-    // Si on a une plage, on tente de l'affiner avec le contenu du chunk.
     const rangeMatch = /^Bac ([CD]) (\d{4})-(\d{4})$/.exec(baseRef);
     if (rangeMatch) {
       const series = rangeMatch[1];
@@ -192,6 +197,9 @@ export function bestExamRef(chunks: RagChunk[], minScore = 0.5): string | null {
       const maxYear = parseInt(rangeMatch[3], 10);
       const specific = extractYearFromChunkText(c.text, minYear, maxYear);
       if (specific !== null) return `Bac ${series} ${specific}`;
+      // Plage sans année extractible → on saute, peut-être qu'un chunk suivant
+      // (potentiellement issu d'un PDF d'année individuelle) sera meilleur.
+      continue;
     }
     return baseRef;
   }
