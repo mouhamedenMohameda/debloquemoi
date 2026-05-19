@@ -87,3 +87,46 @@ export function formatChunksForPrompt(chunks: RagChunk[], maxChars = 6000): stri
   }
   return parts.join("\n\n---\n\n");
 }
+
+/**
+ * Extrait un label « Bac C/D AAAA SN/SC/PC » d'un nom de fichier de corrigé.
+ * Retourne null si le fichier ne suit pas une convention reconnue.
+ *
+ *   "BacC2020sn corr.pdf"               → "Bac C 2020 SN"
+ *   "Bac C 2002 a 2012 sn et sc corr"  → "Bac C 2002-2012 SN"
+ *   "Bac C 2023 SN corr.pdf"            → "Bac C 2023 SN"
+ *   "Bac D SN 2000 a 2010 corrigé"      → "Bac D 2000-2010 SN"
+ *   "Bac C PC 2015 a 2019 corrigé"      → "Bac C 2015-2019 PC"
+ */
+export function parseExamRef(filename: string): string | null {
+  const f = filename.toLowerCase();
+  const series = f.includes("bac c") || /bacc\d/.test(f) ? "C" : f.includes("bac d") ? "D" : null;
+  if (!series) return null;
+
+  const subjMatch = /\b(sn|sc|pc)\b/i.exec(filename);
+  const subjLabel = subjMatch ? subjMatch[0].toUpperCase() : "";
+
+  const rangeMatch = /(\d{4})\s*(?:a|à|-)\s*(\d{4})/i.exec(filename);
+  const singleMatch = /(?<!\d)(\d{4})(?!\d)/.exec(filename);
+
+  let yearLabel: string | null = null;
+  if (rangeMatch) yearLabel = `${rangeMatch[1]}-${rangeMatch[2]}`;
+  else if (singleMatch) yearLabel = singleMatch[1];
+  if (!yearLabel) return null;
+
+  return `Bac ${series} ${yearLabel}${subjLabel ? " " + subjLabel : ""}`;
+}
+
+/**
+ * À partir d'une liste de chunks (triés par pertinence décroissante), renvoie
+ * la référence d'examen la plus pertinente (premier chunk au-dessus du seuil
+ * de score) ou null si aucun n'est suffisamment proche.
+ */
+export function bestExamRef(chunks: RagChunk[], minScore = 0.5): string | null {
+  for (const c of chunks) {
+    if (c.score < minScore) continue;
+    const ref = parseExamRef(c.source);
+    if (ref) return ref;
+  }
+  return null;
+}

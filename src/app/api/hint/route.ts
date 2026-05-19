@@ -16,7 +16,7 @@ import {
   walletInfo,
 } from "@/lib/auth-api";
 import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
-import { formatChunksForPrompt, ragSearch } from "@/lib/rag";
+import { bestExamRef, formatChunksForPrompt, ragSearch } from "@/lib/rag";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getSession } from "@/lib/session";
 
@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
     top_k: 5,
   });
   const ragContext = formatChunksForPrompt(chunks);
+  const similarExam = bestExamRef(chunks);
 
   // ─── 5. Appel Groq ────────────────────────────────────────────────────
   const trimmedCorrection = correction?.trim();
@@ -261,5 +262,7 @@ export async function POST(req: NextRequest) {
     // Free hint info (utile pour la maj UI côté client)
     free_hint_used: freeHintUsed,
     free_hints_remaining: freeHintsRemaining,
+    // Référence d'examen similaire (null si aucun match RAG pertinent)
+    similar_exam: similarExam,
   });
 }

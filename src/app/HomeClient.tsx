@@ -14,7 +14,13 @@ import {
 type Usage = { prompt: number; completion: number; total: number; model: string };
 type HintLevel = 1 | 2 | 3;
 type AppMode = "correct" | "explain";
-type Hint = { level: HintLevel; text: string; usage?: Usage; mode?: AppMode };
+type Hint = {
+  level: HintLevel;
+  text: string;
+  usage?: Usage;
+  mode?: AppMode;
+  similarExam?: string | null;
+};
 
 // Un "groupe" = toutes les aides demandées pour UNE question (focus) donnée.
 // Permet de basculer entre questions sans perdre les corrections déjà obtenues.
@@ -551,7 +557,12 @@ export default function HomeClient({
           break;
         }
         router.refresh();
-        const newHint: Hint = { level: 3, text: data.hint, usage: data.usage };
+        const newHint: Hint = {
+          level: 3,
+          text: data.hint,
+          usage: data.usage,
+          similarExam: data.similar_exam ?? null,
+        };
         setGroups((prev) => {
           const idx = prev.findIndex((g) => g.focusKey === focusLabel);
           if (idx === -1) {
@@ -619,6 +630,7 @@ export default function HomeClient({
         text: data.hint,
         usage: data.usage,
         mode: mode,
+        similarExam: data.similar_exam ?? null,
       };
       setGroups((prev) => {
         const idx = prev.findIndex((g) => g.focusKey === currentKey);
@@ -1337,6 +1349,12 @@ export default function HomeClient({
                     </div>
                     <div className="px-5 py-5 text-[15px] leading-relaxed text-slate-800 sm:px-7 sm:py-6">
                       <MathText text={h.text} />
+                      {h.similarExam && (
+                        <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+                          <span aria-hidden>💡</span>
+                          <span>Similaire à : {h.similarExam}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
