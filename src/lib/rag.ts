@@ -128,15 +128,72 @@ export function parseExamRef(filename: string): string | null {
 }
 
 /**
+ * Cherche une année spécifique (YYYY entre minYear et maxYear) dans le texte
+ * d'un chunk extrait d'une compilation. Utile quand le filename donne une
+ * plage (« Bac C 2002 a 2012 ») et qu'on veut savoir à quelle année précise
+ * appartient ce passage.
+ *
+ * Heuristique : on cherche d'abord des marqueurs forts (IPN/Mr/YYYY,
+ * « Baccalauréat YYYY », « session YYYY »), puis on fallback à la première
+ * année rencontrée dans la plage.
+ */
+function extractYearFromChunkText(
+  text: string,
+  minYear: number,
+  maxYear: number,
+): number | null {
+  const tryYear = (y: number): boolean => y >= minYear && y <= maxYear;
+
+  // Marqueur fort 1 : « IPN ... /YYYY » (en-tête typique des compilations)
+  const ipnMatch = text.match(/IPN[\s\S]{0,60}\b(20\d{2})\b/i);
+  if (ipnMatch) {
+    const y = parseInt(ipnMatch[1], 10);
+    if (tryYear(y)) return y;
+  }
+  // Marqueur fort 2 : « Bac C/D YYYY » ou « Baccalauréat ... YYYY »
+  const bacMatch = text.match(/(?:bac(?:calaur[ée]at)?)\s*[cd]?\s*(?:\d{4}\s*-\s*)?(20\d{2})\b/i);
+  if (bacMatch) {
+    const y = parseInt(bacMatch[1], 10);
+    if (tryYear(y)) return y;
+  }
+  // Marqueur 3 : « session YYYY » ou « année YYYY »
+  const sessionMatch = text.match(/(?:session|année)\s+(?:normale\s+|compl[ée]mentaire\s+)?(20\d{2})\b/i);
+  if (sessionMatch) {
+    const y = parseInt(sessionMatch[1], 10);
+    if (tryYear(y)) return y;
+  }
+  // Fallback : première année 20XX présente dans le texte qui tombe dans la
+  // plage. Évite de matcher des bornes d'intégrale, exposants etc.
+  const allYears = text.match(/\b(20\d{2})\b/g);
+  if (allYears) {
+    for (const ys of allYears) {
+      const y = parseInt(ys, 10);
+      if (tryYear(y)) return y;
+    }
+  }
+  return null;
+}
+
+/**
  * À partir d'une liste de chunks (triés par pertinence décroissante), renvoie
- * la référence d'examen la plus pertinente (premier chunk au-dessus du seuil
- * de score) ou null si aucun n'est suffisamment proche.
+ * la référence d'examen la plus pertinente. Si le chunk top vient d'une
+ * compilation (plage AAAA-BBBB), on cherche l'année précise dans son texte.
  */
 export function bestExamRef(chunks: RagChunk[], minScore = 0.5): string | null {
   for (const c of chunks) {
     if (c.score < minScore) continue;
-    const ref = parseExamRef(c.source);
-    if (ref) return ref;
+    const baseRef = parseExamRef(c.source);
+    if (!baseRef) continue;
+    // Si on a une plage, on tente de l'affiner avec le contenu du chunk.
+    const rangeMatch = /^Bac ([CD]) (\d{4})-(\d{4})$/.exec(baseRef);
+    if (rangeMatch) {
+      const series = rangeMatch[1];
+      const minYear = parseInt(rangeMatch[2], 10);
+      const maxYear = parseInt(rangeMatch[3], 10);
+      const specific = extractYearFromChunkText(c.text, minYear, maxYear);
+      if (specific !== null) return `Bac ${series} ${specific}`;
+    }
+    return baseRef;
   }
   return null;
 }
