@@ -83,12 +83,35 @@ RAPPELS DE FOND :
 - Tableau d'avancement et tableaux de valeurs : utilise les tables Markdown (\`| ... | ... |\`).`,
 };
 
-export function buildSystemPrompt(subject: Subject, chapter?: Chapter): string {
+function ragBlock(ragContext?: string): string {
+  if (!ragContext || ragContext.trim().length === 0) return "";
+  return [
+    "=== DOCUMENTS DE RÉFÉRENCE ===",
+    "Voici des extraits du programme officiel et de corrigés Bac C mauritaniens",
+    "(manuels ESSEBIL, IPN, Naturix, sujets/corrigés Bac 2010-2023). Si l'un",
+    "couvre directement la notion demandée, calque-toi sur leur formulation et",
+    "cite la source au format `[source : <fichier> p.<page>]`. Si ces extraits",
+    "ne sont pas pertinents pour la question posée, ignore-les complètement —",
+    "ne force JAMAIS leur usage.",
+    "",
+    ragContext,
+    "",
+    "=== FIN DOCUMENTS DE RÉFÉRENCE ===",
+    "",
+  ].join("\n");
+}
+
+export function buildSystemPrompt(
+  subject: Subject,
+  chapter?: Chapter,
+  ragContext?: string,
+): string {
   return [
     subject.pedagogy,
     chapter ? `Chapitre concerné : ${chapter.name}.` : "",
     `Tu réponds toujours en français.`,
     ``,
+    ragBlock(ragContext),
     `=== PROTOCOLE DE LECTURE OBLIGATOIRE ===`,
     `Avant TOUT calcul, tu DOIS :`,
     `1. Re-lire l'énoncé en entier, lentement, et identifier CHAQUE détail : intervalle de définition, bornes d'intégrale (note bien numérateur ET dénominateur), conditions sur les paramètres, fonction étudiée précisément.`,
@@ -166,12 +189,14 @@ ${LEVEL_INSTRUCTIONS[level]}${history}`;
 export function buildExplainSystemPrompt(
   subject: Subject,
   chapter?: Chapter,
+  ragContext?: string,
 ): string {
   return [
     subject.pedagogy,
     chapter ? `Chapitre concerné : ${chapter.name}.` : "",
     `Tu réponds toujours en français.`,
     ``,
+    ragBlock(ragContext),
     `=== MISSION ===`,
     `L'élève te donne un énoncé + une correction qu'il ne comprend pas. Ta mission : décortiquer cette correction pas à pas, en suivant SON raisonnement (pas le tien).`,
     ``,

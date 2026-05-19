@@ -16,6 +16,7 @@ import {
   walletInfo,
 } from "@/lib/auth-api";
 import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
+import { formatChunksForPrompt, ragSearch } from "@/lib/rag";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getSession } from "@/lib/session";
 
@@ -153,7 +154,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── 4. Appel Groq ────────────────────────────────────────────────────
+  // ─── 4. RAG : récupérer les passages les plus pertinents ─────────────
+  // Best-effort : si le rag-service est down, ragSearch renvoie [] et on
+  // continue sans contexte. Le hint reste utile.
+  const ragQuery = [
+    focusQuestion?.trim(),
+    correction?.trim(),
+    exercise,
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 2000);
+  const chunks = await ragSearch({
+    subject: subject.id,
+    query: ragQuery,
+    top_k: 5,
+  });
+  const ragContext = formatChunksForPrompt(chunks);
+
+  // ─── 5. Appel Groq ────────────────────────────────────────────────────
   const trimmedCorrection = correction?.trim();
   const isExplainMode = !!trimmedCorrection && trimmedCorrection.length >= 3;
 
@@ -165,7 +184,7 @@ export async function POST(req: NextRequest) {
       ? [
           {
             role: "system" as const,
-            content: buildExplainSystemPrompt(subject, chapter),
+            content: buildExplainSystemPrompt(subject, chapter, ragContext),
           },
           {
             role: "user" as const,
@@ -179,7 +198,7 @@ export async function POST(req: NextRequest) {
       : [
           {
             role: "system" as const,
-            content: buildSystemPrompt(subject, chapter),
+            content: buildSystemPrompt(subject, chapter, ragContext),
           },
           {
             role: "user" as const,
