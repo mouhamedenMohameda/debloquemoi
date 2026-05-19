@@ -58,12 +58,23 @@ export async function POST(req: NextRequest) {
     const fh = await freeHintConsume(session.user_id);
     if (fh.consumed) {
       freeHintUsed = true;
-      freeHintsRemaining = fh.remaining;
     }
+    freeHintsRemaining = fh.remaining;
   } catch (e) {
-    if (!(e instanceof AuthApiError)) {
-      console.warn("freeHintConsume failed, falling back to MRU", e);
+    if (e instanceof AuthApiError && e.status === 404) {
+      return NextResponse.json(
+        { error: "Compte introuvable. Reconnecte-toi." },
+        { status: 401 },
+      );
     }
+    console.error("[ocr] freeHintConsume hard error", e);
+    return NextResponse.json(
+      {
+        error:
+          "Service temporairement indisponible. Réessaie dans quelques instants.",
+      },
+      { status: 503 },
+    );
   }
 
   if (!freeHintUsed) {
@@ -113,6 +124,7 @@ export async function POST(req: NextRequest) {
   // ─── 5. Débit du portefeuille après succès Groq (sauf si free hint) ──
   const units = unitsForUsage(usage);
   let balanceAfter: number | undefined;
+  let debitStatus: "ok" | "skipped" | "failed" = "skipped";
   if (!freeHintUsed && units > 0) {
     try {
       const r = await walletDebit({
@@ -122,9 +134,15 @@ export async function POST(req: NextRequest) {
         note: "OCR énoncé",
       });
       balanceAfter = r.balance_mru;
+      debitStatus = "ok";
     } catch (e) {
-      console.error("walletDebit error", e);
-      // On NE renvoie pas d'erreur — la réponse Groq est déjà produite.
+      console.error(
+        "[ocr] walletDebit FAILED — user_id=%s units=%d err=%s",
+        session.user_id,
+        units,
+        e instanceof Error ? e.message : String(e),
+      );
+      debitStatus = "failed";
     }
   }
 
@@ -133,6 +151,7 @@ export async function POST(req: NextRequest) {
     usage,
     debited_units: freeHintUsed ? 0 : units,
     balance_mru: balanceAfter,
+    debit_status: debitStatus,
     free_hint_used: freeHintUsed,
     free_hints_remaining: freeHintsRemaining,
   });

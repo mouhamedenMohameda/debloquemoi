@@ -340,4 +340,54 @@ export function adminProofUrl(requestId: number): string {
   return `${BASE}/api/admin/credit-topups/${requestId}/proof`;
 }
 
+// ─── Admin users (recherche + ajustement portefeuille manuel) ────────────────
+
+export type AdminUserSummary = {
+  id: number;
+  email: string;
+  is_admin: boolean;
+  credit_balance: number;
+  balance_mru_approx: number;
+  credits_expire_at?: string | null;
+  created_at?: string | null;
+};
+
+export async function adminListUsers(
+  jwt: string,
+  opts: { q?: string; limit?: number; offset?: number } = {},
+): Promise<{ users: AdminUserSummary[]; total: number; limit: number; offset: number }> {
+  const params = new URLSearchParams();
+  if (opts.q) params.set("q", opts.q);
+  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  const res = await fetch(`${BASE}/api/admin/users${qs ? `?${qs}` : ""}`, {
+    headers: authHeaders(jwt),
+    cache: "no-store",
+  });
+  return jsonOrThrow(res);
+}
+
+export async function adminGrantWallet(
+  jwt: string,
+  userId: number,
+  body: { mru_credit: number; admin_note?: string; extend_validity_days?: number },
+): Promise<{
+  ok: true;
+  user_id: number;
+  credit_balance: number;
+  balance_mru_approx: number;
+  wallet_units_added: number;
+  mru_credited_approx: number;
+  credits_expire_at: string | null;
+}> {
+  const res = await fetch(`${BASE}/api/admin/users/${userId}/grant-wallet`, {
+    method: "POST",
+    headers: { ...authHeaders(jwt), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  return jsonOrThrow(res);
+}
+
 export { AuthApiError };

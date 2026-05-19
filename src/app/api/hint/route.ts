@@ -93,14 +93,26 @@ export async function POST(req: NextRequest) {
     const fh = await freeHintConsume(session.user_id);
     if (fh.consumed) {
       freeHintUsed = true;
-      freeHintsRemaining = fh.remaining;
     }
+    freeHintsRemaining = fh.remaining;
   } catch (e) {
-    // Si auth-api est down ou la route absente, on ne bloque pas — on bascule
-    // simplement sur MRU comme avant.
-    if (!(e instanceof AuthApiError)) {
-      console.warn("freeHintConsume failed, falling back to MRU", e);
+    // Hard error sur auth-api : on REFUSE plutôt que de tomber sur MRU.
+    // Sinon, un user avec des free hints dispos serait débité de son MRU
+    // chaque fois qu'auth-api flickerait, sans s'en rendre compte.
+    if (e instanceof AuthApiError && e.status === 404) {
+      return NextResponse.json(
+        { error: "Compte introuvable. Reconnecte-toi." },
+        { status: 401 },
+      );
     }
+    console.error("[hint] freeHintConsume hard error", e);
+    return NextResponse.json(
+      {
+        error:
+          "Service temporairement indisponible. Réessaie dans quelques instants.",
+      },
+      { status: 503 },
+    );
   }
 
   if (!freeHintUsed) {
@@ -180,6 +192,7 @@ export async function POST(req: NextRequest) {
   // ─── 5. Débit du portefeuille après succès Groq (sauf si free hint) ──
   const units = unitsForUsage(usage);
   let balanceAfter: number | undefined;
+  let debitStatus: "ok" | "skipped" | "failed" = "skipped";
   if (!freeHintUsed && units > 0) {
     try {
       const r = await walletDebit({
@@ -189,10 +202,17 @@ export async function POST(req: NextRequest) {
         note: `${isExplainMode ? "explain" : "hint"} L${level} (${subject.id})`,
       });
       balanceAfter = r.balance_mru;
+      debitStatus = "ok";
     } catch (e) {
-      console.error("walletDebit error", e);
-      // On NE renvoie pas d'erreur au user — la réponse Groq est déjà produite.
-      // Le débit échoué est juste loggé. (Anti-fraude : voir auth-api.)
+      // Groq a déjà répondu : on conserve la réponse mais on signale le
+      // problème pour que le client puisse afficher un avertissement.
+      console.error(
+        "[hint] walletDebit FAILED — user_id=%s units=%d err=%s",
+        session.user_id,
+        units,
+        e instanceof Error ? e.message : String(e),
+      );
+      debitStatus = "failed";
     }
   }
 
@@ -204,6 +224,7 @@ export async function POST(req: NextRequest) {
     mode: isExplainMode ? "explain" : "correct",
     debited_units: freeHintUsed ? 0 : units,
     balance_mru: balanceAfter,
+    debit_status: debitStatus,
     // Free hint info (utile pour la maj UI côté client)
     free_hint_used: freeHintUsed,
     free_hints_remaining: freeHintsRemaining,
