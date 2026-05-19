@@ -89,22 +89,32 @@ export function formatChunksForPrompt(chunks: RagChunk[], maxChars = 6000): stri
 }
 
 /**
- * Extrait un label « Bac C/D AAAA SN/SC/PC » d'un nom de fichier de corrigé.
+ * Extrait un label « Bac C/D AAAA » d'un nom de fichier de corrigé.
  * Retourne null si le fichier ne suit pas une convention reconnue.
  *
- *   "BacC2020sn corr.pdf"               → "Bac C 2020 SN"
- *   "Bac C 2002 a 2012 sn et sc corr"  → "Bac C 2002-2012 SN"
- *   "Bac C 2023 SN corr.pdf"            → "Bac C 2023 SN"
- *   "Bac D SN 2000 a 2010 corrigé"      → "Bac D 2000-2010 SN"
- *   "Bac C PC 2015 a 2019 corrigé"      → "Bac C 2015-2019 PC"
+ *   "BacC2020sn corr.pdf"                → "Bac C 2020"
+ *   "Bac C 2002 a 2012 sn et sc corr"   → "Bac C 2002-2012"
+ *   "Bac_C_science_2022_SC.pdf"          → "Bac C 2022"
+ *   "Bac PC 2021 corrigé sn.pdf"         → "Bac C 2021" (PC implique série C)
+ *   "BAC D MA 2019 sn corrigé.pdf"       → "Bac D 2019"
+ *   "Bac D SN 2000 a 2010 corrigé"       → "Bac D 2000-2010"
+ *
+ * On omet volontairement le suffixe matière (SN/SC/PC) car « sn » dans un
+ * nom de fichier désigne souvent la « session normale » d'examen et non la
+ * matière « Sciences Naturelles ». Le contexte (la question est posée en
+ * math, physique, etc.) suffit déjà à indiquer la matière.
  */
 export function parseExamRef(filename: string): string | null {
-  const f = filename.toLowerCase();
-  const series = f.includes("bac c") || /bacc\d/.test(f) ? "C" : f.includes("bac d") ? "D" : null;
-  if (!series) return null;
+  // Normalise les underscores en espaces, tolère majuscules.
+  const f = filename.toLowerCase().replace(/_/g, " ");
 
-  const subjMatch = /\b(sn|sc|pc)\b/i.exec(filename);
-  const subjLabel = subjMatch ? subjMatch[0].toUpperCase() : "";
+  // Détecte la série (C, D). « Bac PC/MA/SN/SC » sans C/D explicite → C
+  // par convention (la majorité du corpus Bac C Mauritanie suit ce schéma).
+  let series: "C" | "D" | null = null;
+  if (f.includes("bac c") || /bacc\d/.test(f)) series = "C";
+  else if (f.includes("bac d")) series = "D";
+  else if (/\bbac\s+(pc|ma|sn|sc)\b/.test(f)) series = "C";
+  if (!series) return null;
 
   const rangeMatch = /(\d{4})\s*(?:a|à|-)\s*(\d{4})/i.exec(filename);
   const singleMatch = /(?<!\d)(\d{4})(?!\d)/.exec(filename);
@@ -114,7 +124,7 @@ export function parseExamRef(filename: string): string | null {
   else if (singleMatch) yearLabel = singleMatch[1];
   if (!yearLabel) return null;
 
-  return `Bac ${series} ${yearLabel}${subjLabel ? " " + subjLabel : ""}`;
+  return `Bac ${series} ${yearLabel}`;
 }
 
 /**
