@@ -4,6 +4,7 @@ import { unitsForUsage } from "@/lib/billing";
 import { extractTextFromImage } from "@/lib/groq";
 import {
   AuthApiError,
+  freeHintConsume,
   walletDebit,
   walletInfo,
 } from "@/lib/auth-api";
@@ -50,27 +51,43 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ─── 3. Vérification solde avant l'appel coûteux ──────────────────────
+  // ─── 3. Free hint d'abord ; sinon vérification solde MRU ──────────────
+  let freeHintUsed = false;
+  let freeHintsRemaining: number | undefined;
   try {
-    const w = await walletInfo(session.user_id);
-    if (w.blocked_reason) {
-      return NextResponse.json(
-        { error: w.blocked_reason, blocked: true, balance_mru: w.balance_mru },
-        { status: 402 },
-      );
+    const fh = await freeHintConsume(session.user_id);
+    if (fh.consumed) {
+      freeHintUsed = true;
+      freeHintsRemaining = fh.remaining;
     }
   } catch (e) {
-    if (e instanceof AuthApiError && e.status === 404) {
+    if (!(e instanceof AuthApiError)) {
+      console.warn("freeHintConsume failed, falling back to MRU", e);
+    }
+  }
+
+  if (!freeHintUsed) {
+    try {
+      const w = await walletInfo(session.user_id);
+      if (w.blocked_reason) {
+        return NextResponse.json(
+          { error: w.blocked_reason, blocked: true, balance_mru: w.balance_mru },
+          { status: 402 },
+        );
+      }
+    } catch (e) {
+      if (e instanceof AuthApiError && e.status === 404) {
+        return NextResponse.json(
+          { error: "Compte introuvable. Reconnecte-toi." },
+          { status: 401 },
+        );
+      }
+      console.error("walletInfo error", e);
       return NextResponse.json(
-        { error: "Compte introuvable. Reconnecte-toi." },
-        { status: 401 },
+        { error: "Erreur de vérification du portefeuille." },
+        { status: 502 },
       );
     }
-    console.error("walletInfo error", e);
-    return NextResponse.json(
-      { error: "Erreur de vérification du portefeuille." },
-      { status: 502 },
-    );
   }
 
   // ─── 4. Appel Groq Vision ─────────────────────────────────────────────
@@ -93,10 +110,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ─── 5. Débit du portefeuille après succès Groq ───────────────────────
+  // ─── 5. Débit du portefeuille après succès Groq (sauf si free hint) ──
   const units = unitsForUsage(usage);
   let balanceAfter: number | undefined;
-  if (units > 0) {
+  if (!freeHintUsed && units > 0) {
     try {
       const r = await walletDebit({
         user_id: session.user_id,
@@ -114,7 +131,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     text,
     usage,
-    debited_units: units,
+    debited_units: freeHintUsed ? 0 : units,
     balance_mru: balanceAfter,
+    free_hint_used: freeHintUsed,
+    free_hints_remaining: freeHintsRemaining,
   });
 }
