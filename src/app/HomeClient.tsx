@@ -92,10 +92,15 @@ export default function HomeClient({ userId }: HomeClientProps) {
   // question via les chips si besoin.
   const [treatAll, setTreatAll] = useState(true);
   // Images + OCR pour l'énoncé (peuvent être plusieurs)
+  // pendingImages : photos uploadées en attente de transcription (gratuites
+  // tant que l'utilisateur n'appuie pas sur "Extraire"). imagePreviews :
+  // photos déjà transcrites (texte ajouté au textarea).
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrUsage, setOcrUsage] = useState<Usage | null>(null);
   // Images + OCR pour la correction (mode explain)
+  const [pendingCorrectionImages, setPendingCorrectionImages] = useState<string[]>([]);
   const [correctionImagePreviews, setCorrectionImagePreviews] = useState<string[]>([]);
   const [correctionOcrLoading, setCorrectionOcrLoading] = useState(false);
   const [correctionOcrUsage, setCorrectionOcrUsage] = useState<Usage | null>(null);
@@ -155,8 +160,10 @@ export default function HomeClient({ userId }: HomeClientProps) {
     setCorrection("");
     setFocusQuestion("");
     setTreatAll(true); // défaut = traiter tout l'exercice
+    setPendingImages([]);
     setImagePreviews([]);
     setOcrUsage(null);
+    setPendingCorrectionImages([]);
     setCorrectionImagePreviews([]);
     setCorrectionOcrUsage(null);
     setCurrentSessionId(null);
@@ -183,10 +190,10 @@ export default function HomeClient({ userId }: HomeClientProps) {
       0,
     );
 
-  // OCR générique : utilisé pour l'énoncé ET pour la correction.
-  // APPEND : le texte OCR est ajouté à la suite du texte existant, ce qui
-  // permet à l'utilisateur d'uploader plusieurs photos d'un même document.
-  const runOcr = useCallback(
+  // Upload = preview seulement. La transcription (OCR + débit) ne se déclenche
+  // que lorsque l'utilisateur appuie sur « Extraire le texte ». Ça permet de
+  // changer une photo mal cadrée sans avoir été débité.
+  const queueImage = useCallback(
     async (
       file: File,
       target: "exercise" | "correction",
@@ -201,6 +208,25 @@ export default function HomeClient({ userId }: HomeClientProps) {
         return { ok: false };
       }
       const dataUrl = await fileToDataUrl(file);
+      const setQueue =
+        target === "correction" ? setPendingCorrectionImages : setPendingImages;
+      setQueue((p) => [...p, dataUrl]);
+      return { ok: true };
+    },
+    [],
+  );
+
+  // Transcrit toutes les photos en attente d'une cible. Chaque image
+  // consomme un free hint OU débite du MRU côté serveur.
+  const extractPendingOcr = useCallback(
+    async (target: "exercise" | "correction") => {
+      setError(null);
+      const pending =
+        target === "correction" ? pendingCorrectionImages : pendingImages;
+      if (pending.length === 0) return;
+
+      const setQueue =
+        target === "correction" ? setPendingCorrectionImages : setPendingImages;
       const setPrevs =
         target === "correction"
           ? setCorrectionImagePreviews
@@ -211,58 +237,64 @@ export default function HomeClient({ userId }: HomeClientProps) {
         target === "correction" ? setCorrectionOcrUsage : setOcrUsage;
       const setText = target === "correction" ? setCorrection : setExercise;
 
-      setPrevs((p) => [...p, dataUrl]);
       setLoad(true);
       try {
-        const res = await fetch("/api/ocr", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageDataUrl: dataUrl }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Erreur OCR");
-        // Le free-hint ou le solde MRU a changé côté serveur : refresh le Header.
-        router.refresh();
-        // Append : on ajoute le texte OCR à la suite, séparé par une ligne vide
-        setText((prev) =>
-          prev.trim().length === 0 ? data.text : `${prev}\n\n${data.text}`,
-        );
-        if (data.usage) {
-          setUse((prev) =>
-            prev
-              ? {
-                  ...data.usage,
-                  prompt: prev.prompt + data.usage.prompt,
-                  completion: prev.completion + data.usage.completion,
-                  total: prev.total + data.usage.total,
-                }
-              : data.usage,
-          );
+        for (const dataUrl of pending) {
+          try {
+            const res = await fetch("/api/ocr", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ imageDataUrl: dataUrl }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              setError(data.error ?? "Erreur OCR");
+              // On stoppe le batch — les photos restantes restent en attente
+              break;
+            }
+            router.refresh();
+            setText((prev) =>
+              prev.trim().length === 0
+                ? data.text
+                : `${prev}\n\n${data.text}`,
+            );
+            setPrevs((p) => [...p, dataUrl]);
+            setQueue((p) => p.filter((u) => u !== dataUrl));
+            if (data.usage) {
+              setUse((prev) =>
+                prev
+                  ? {
+                      ...data.usage,
+                      prompt: prev.prompt + data.usage.prompt,
+                      completion: prev.completion + data.usage.completion,
+                      total: prev.total + data.usage.total,
+                    }
+                  : data.usage,
+              );
+            }
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Erreur OCR inconnue");
+            break;
+          }
         }
-        return { ok: true };
-      } catch (e) {
-        // Retire la dernière preview en cas d'échec OCR
-        setPrevs((p) => p.slice(0, -1));
-        setError(e instanceof Error ? e.message : "Erreur OCR inconnue");
-        return { ok: false };
       } finally {
         setLoad(false);
       }
     },
-    [],
+    [pendingCorrectionImages, pendingImages, router],
   );
 
   const handleFile = useCallback(
     async (file: File) => {
-      await runOcr(file, "exercise");
+      await queueImage(file, "exercise");
     },
-    [runOcr],
+    [queueImage],
   );
   const handleCorrectionFile = useCallback(
     async (file: File) => {
-      await runOcr(file, "correction");
+      await queueImage(file, "correction");
     },
-    [runOcr],
+    [queueImage],
   );
 
   // Drag & drop global avec routing par zone (data-drop-target).
@@ -288,8 +320,8 @@ export default function HomeClient({ userId }: HomeClientProps) {
       const which = target?.getAttribute("data-drop-target") ?? "exercise";
       void (async () => {
         for (const f of files) {
-          if (which === "correction") await runOcr(f, "correction");
-          else await runOcr(f, "exercise");
+          if (which === "correction") await queueImage(f, "correction");
+          else await queueImage(f, "exercise");
         }
       })();
     }
@@ -301,7 +333,7 @@ export default function HomeClient({ userId }: HomeClientProps) {
       window.removeEventListener("dragleave", onDragLeave);
       window.removeEventListener("drop", onDrop);
     };
-  }, [runOcr]);
+  }, [queueImage]);
 
   // === Historique : hydratation au mount + sauvegarde auto ===
   const hydratedRef = useRef(false);
@@ -411,7 +443,9 @@ export default function HomeClient({ userId }: HomeClientProps) {
     setGroups(s.groups);
     setError(null);
     setHistoryOpen(false);
+    setPendingImages([]);
     setImagePreviews([]);
+    setPendingCorrectionImages([]);
     setCorrectionImagePreviews([]);
     setOcrUsage(null);
     setCorrectionOcrUsage(null);
@@ -440,12 +474,12 @@ export default function HomeClient({ userId }: HomeClientProps) {
       const active = document.activeElement as HTMLElement | null;
       const target = active?.closest?.("[data-drop-target]");
       const which = target?.getAttribute("data-drop-target") ?? "exercise";
-      if (which === "correction") void runOcr(file, "correction");
-      else void runOcr(file, "exercise");
+      if (which === "correction") void queueImage(file, "correction");
+      else void queueImage(file, "exercise");
     }
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [runOcr]);
+  }, [queueImage]);
 
   // Fan-out : génère la solution complète de CHAQUE sous-question détectée,
   // chacune dans son propre groupe. Bien meilleur que de demander une mégarépoinse.
@@ -846,11 +880,24 @@ export default function HomeClient({ userId }: HomeClientProps) {
               </PhotoButton>
             </div>
 
+            {pendingImages.length > 0 && (
+              <PendingImageList
+                previews={pendingImages}
+                loading={ocrLoading}
+                onRemove={(i) =>
+                  setPendingImages((p) => p.filter((_, idx) => idx !== i))
+                }
+                onClearAll={() => setPendingImages([])}
+                onExtract={() => extractPendingOcr("exercise")}
+                label="énoncé"
+              />
+            )}
+
             {(imagePreviews.length > 0 || ocrLoading) && (
               <div className="mt-3">
                 <ImagePreviewList
                   previews={imagePreviews}
-                  ocrLoading={ocrLoading}
+                  ocrLoading={ocrLoading && pendingImages.length === 0}
                   ocrUsage={ocrUsage}
                   onClear={() => {
                     setImagePreviews([]);
@@ -911,11 +958,28 @@ export default function HomeClient({ userId }: HomeClientProps) {
                 </PhotoButton>
               </div>
 
+              {pendingCorrectionImages.length > 0 && (
+                <PendingImageList
+                  previews={pendingCorrectionImages}
+                  loading={correctionOcrLoading}
+                  onRemove={(i) =>
+                    setPendingCorrectionImages((p) =>
+                      p.filter((_, idx) => idx !== i),
+                    )
+                  }
+                  onClearAll={() => setPendingCorrectionImages([])}
+                  onExtract={() => extractPendingOcr("correction")}
+                  label="correction"
+                />
+              )}
+
               {(correctionImagePreviews.length > 0 || correctionOcrLoading) && (
                 <div className="mt-3">
                   <ImagePreviewList
                     previews={correctionImagePreviews}
-                    ocrLoading={correctionOcrLoading}
+                    ocrLoading={
+                      correctionOcrLoading && pendingCorrectionImages.length === 0
+                    }
                     ocrUsage={correctionOcrUsage}
                     onClear={() => {
                       setCorrectionImagePreviews([]);
@@ -1379,6 +1443,87 @@ function PhotoButton({
         }}
       />
     </label>
+  );
+}
+
+function PendingImageList({
+  previews,
+  loading,
+  onRemove,
+  onClearAll,
+  onExtract,
+  label,
+}: {
+  previews: string[];
+  loading: boolean;
+  onRemove: (index: number) => void;
+  onClearAll: () => void;
+  onExtract: () => void;
+  label: string;
+}) {
+  const count = previews.length;
+  if (count === 0) return null;
+  return (
+    <div className="mt-3 space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+          ⏳ {count} photo{count > 1 ? "s" : ""} {label} en attente
+        </span>
+        <button
+          type="button"
+          onClick={onClearAll}
+          disabled={loading}
+          className="text-[11px] font-medium text-slate-500 underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          tout retirer
+        </button>
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto py-1">
+        {previews.map((src, i) => (
+          <div
+            key={i}
+            className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-amber-300 bg-white"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={`${label} ${i + 1}`}
+              className="h-full w-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              disabled={loading}
+              aria-label={`Retirer la photo ${i + 1}`}
+              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-[11px] font-bold text-white hover:bg-black disabled:opacity-50"
+            >
+              ✕
+            </button>
+            <span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 text-[10px] font-bold text-white">
+              {i + 1}
+            </span>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onExtract}
+        disabled={loading}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50"
+      >
+        {loading ? (
+          <>
+            <Spinner /> Transcription…
+          </>
+        ) : (
+          <>📝 Extraire le texte ({count})</>
+        )}
+      </button>
+      <p className="text-[10px] text-amber-700/80">
+        Vérifie d&apos;abord que la photo est nette. La transcription consomme
+        une correction gratuite (ou ton solde MRU).
+      </p>
+    </div>
   );
 }
 
