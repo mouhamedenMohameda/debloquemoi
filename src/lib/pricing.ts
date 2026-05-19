@@ -7,8 +7,8 @@ import { DEFAULT_MODEL, VISION_MODEL } from "./groq";
 export const USD_TO_MRU = 40;
 
 // Multiplicateur appliqué au coût réel Groq pour facturer l'utilisateur.
-// 2 = on charge le double du coût IA (marge brute 50%).
-export const PRICE_MARKUP = 2;
+// 2.5 = on charge 2.5× le coût IA (marge brute 60%).
+export const PRICE_MARKUP = 2.5;
 
 // Tarification forfaitaire (prévisible pour le user — pas de surprise selon
 // la longueur du texte généré).
