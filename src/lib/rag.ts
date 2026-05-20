@@ -21,19 +21,34 @@ export type RagSearchResult = {
   chunks: RagChunk[];
   subject: string;
   query: string;
+  low_confidence: boolean;
+  min_score_threshold: number;
 };
 
 /**
- * Cherche les passages les plus pertinents dans le corpus indexé. Renvoie une
- * liste vide en cas d'erreur (le RAG est une amélioration : si le service est
- * down, on doit pouvoir continuer à servir des hints sans contexte).
+ * Résultat sain renvoyé même en cas d'erreur réseau / service down. Permet aux
+ * callers d'avoir un type stable sans null-checks partout.
+ */
+const EMPTY_RESULT: RagSearchResult = {
+  chunks: [],
+  subject: "",
+  query: "",
+  low_confidence: true,
+  min_score_threshold: 0.55,
+};
+
+/**
+ * Cherche les passages les plus pertinents dans le corpus indexé. Renvoie un
+ * résultat vide (low_confidence=true) en cas d'erreur — le RAG est une
+ * amélioration : si le service est down, on continue sans contexte mais en
+ * signalant à l'appelant que la confiance est faible.
  */
 export async function ragSearch(input: {
   subject: string;
   query: string;
   top_k?: number;
-}): Promise<RagChunk[]> {
-  if (!S2S_KEY) return []; // pas configuré → RAG désactivé silencieusement
+}): Promise<RagSearchResult> {
+  if (!S2S_KEY) return EMPTY_RESULT; // pas configuré → RAG désactivé silencieusement
   try {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 4000);
@@ -54,38 +69,59 @@ export async function ragSearch(input: {
     clearTimeout(timeout);
     if (!res.ok) {
       console.warn("[rag] /search non OK", res.status);
-      return [];
+      return { ...EMPTY_RESULT, subject: input.subject, query: input.query };
     }
     const data = (await res.json()) as RagSearchResult;
-    return data.chunks ?? [];
+    return {
+      chunks: data.chunks ?? [],
+      subject: data.subject ?? input.subject,
+      query: data.query ?? input.query,
+      low_confidence: data.low_confidence ?? true,
+      min_score_threshold: data.min_score_threshold ?? 0.55,
+    };
   } catch (e) {
     console.warn("[rag] /search error", e);
-    return [];
+    return { ...EMPTY_RESULT, subject: input.subject, query: input.query };
   }
 }
 
 /**
  * Formate les chunks récupérés en bloc texte à injecter dans le system prompt.
- * Limite la longueur totale pour ne pas exploser le contexte (les chunks Chroma
- * peuvent être longs ; on tronque à ~6000 caractères au total).
+ *
+ * Chaque chunk est numéroté `[#1]`, `[#2]`… pour permettre au modèle de citer
+ * précisément une source (Phase 1 — anti-hallucination). Limite la longueur
+ * totale à ~6000 caractères pour ne pas exploser le contexte.
+ *
+ * Retourne aussi `included` : la liste des chunks effectivement inclus (après
+ * éventuelle troncature), pour que le caller puisse valider les citations.
  */
-export function formatChunksForPrompt(chunks: RagChunk[], maxChars = 6000): string {
-  if (chunks.length === 0) return "";
+export function formatChunksForPrompt(
+  chunks: RagChunk[],
+  maxChars = 6000,
+): { text: string; included: RagChunk[] } {
+  if (chunks.length === 0) return { text: "", included: [] };
   const parts: string[] = [];
+  const included: RagChunk[] = [];
   let total = 0;
-  for (const c of chunks) {
-    const header = `[Source : ${c.source} p.${c.page}]`;
+  for (let i = 0; i < chunks.length; i++) {
+    const c = chunks[i];
+    const tag = `[#${i + 1}]`;
+    const header = `${tag} [Source : ${c.source} p.${c.page}]`;
     const body = c.text.trim();
     const piece = `${header}\n${body}`;
     if (total + piece.length > maxChars) {
       const remaining = maxChars - total;
-      if (remaining > 200) parts.push(piece.slice(0, remaining) + "…");
+      if (remaining > 200) {
+        parts.push(piece.slice(0, remaining) + "…");
+        included.push(c);
+      }
       break;
     }
     parts.push(piece);
+    included.push(c);
     total += piece.length;
   }
-  return parts.join("\n\n---\n\n");
+  return { text: parts.join("\n\n---\n\n"), included };
 }
 
 /**

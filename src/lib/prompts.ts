@@ -83,16 +83,36 @@ RAPPELS DE FOND :
 - Tableau d'avancement et tableaux de valeurs : utilise les tables Markdown (\`| ... | ... |\`).`,
 };
 
-function ragBlock(ragContext?: string): string {
-  if (!ragContext || ragContext.trim().length === 0) return "";
+function ragBlock(ragContext?: string, lowConfidence?: boolean): string {
+  if (!ragContext || ragContext.trim().length === 0) {
+    if (lowConfidence) {
+      return [
+        "=== AUCUN CORRIGÉ PROCHE TROUVÉ ===",
+        "Le moteur RAG n'a pas trouvé d'extrait suffisamment pertinent dans le",
+        "corpus de corrigés indexés. Réponds en raisonnant depuis les principes",
+        "généraux du cours, et précise à l'élève que tu n'as pas trouvé de",
+        "corrigé Bac similaire à proposer comme référence.",
+        "",
+      ].join("\n");
+    }
+    return "";
+  }
   return [
     "=== DOCUMENTS DE RÉFÉRENCE ===",
     "Voici des extraits du programme officiel et de corrigés Bac C mauritaniens",
-    "(manuels ESSEBIL, IPN, Naturix, sujets/corrigés Bac 2010-2023). Si l'un",
-    "couvre directement la notion demandée, calque-toi sur leur formulation et",
-    "cite la source au format `[source : <fichier> p.<page>]`. Si ces extraits",
-    "ne sont pas pertinents pour la question posée, ignore-les complètement —",
-    "ne force JAMAIS leur usage.",
+    "(manuels ESSEBIL, IPN, Naturix, sujets/corrigés Bac 2010-2023). Chaque",
+    "extrait est précédé d'un identifiant `[#N]` (#1, #2, …) que tu DOIS",
+    "utiliser pour citer la source dès que tu t'appuies dessus.",
+    "",
+    "RÈGLE DE CITATION OBLIGATOIRE (Phase 1 — anti-hallucination) :",
+    "- Chaque fois que tu rappelles un théorème, une formule, une définition,",
+    "  une convention de notation ou un résultat ISSU d'un de ces extraits,",
+    "  AJOUTE l'identifiant `[#N]` correspondant juste après, dans la même",
+    "  phrase. Exemple : « D'après la conservation de la matière [#2], on a … »",
+    "- Si tu utilises une connaissance générale de cours qui N'EST PAS dans les",
+    "  extraits, ne mets aucun `[#N]` — la citation doit rester fiable.",
+    "- Si AUCUN extrait ne couvre la notion demandée, ignore-les complètement",
+    "  et raisonne depuis le cours sans rien citer. Ne force JAMAIS l'usage.",
     "",
     ragContext,
     "",
@@ -105,13 +125,14 @@ export function buildSystemPrompt(
   subject: Subject,
   chapter?: Chapter,
   ragContext?: string,
+  lowConfidence?: boolean,
 ): string {
   return [
     subject.pedagogy,
     chapter ? `Chapitre concerné : ${chapter.name}.` : "",
     `Tu réponds toujours en français.`,
     ``,
-    ragBlock(ragContext),
+    ragBlock(ragContext, lowConfidence),
     `=== PROTOCOLE DE LECTURE OBLIGATOIRE ===`,
     `Avant TOUT calcul, tu DOIS :`,
     `1. Re-lire l'énoncé en entier, lentement, et identifier CHAQUE détail : intervalle de définition, bornes d'intégrale (note bien numérateur ET dénominateur), conditions sur les paramètres, fonction étudiée précisément.`,
@@ -190,13 +211,14 @@ export function buildExplainSystemPrompt(
   subject: Subject,
   chapter?: Chapter,
   ragContext?: string,
+  lowConfidence?: boolean,
 ): string {
   return [
     subject.pedagogy,
     chapter ? `Chapitre concerné : ${chapter.name}.` : "",
     `Tu réponds toujours en français.`,
     ``,
-    ragBlock(ragContext),
+    ragBlock(ragContext, lowConfidence),
     `=== MISSION ===`,
     `L'élève te donne un énoncé + une correction qu'il ne comprend pas. Ta mission : décortiquer cette correction pas à pas, en suivant SON raisonnement (pas le tien).`,
     ``,

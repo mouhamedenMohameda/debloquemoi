@@ -17,6 +17,7 @@ import {
 } from "@/lib/auth-api";
 import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
 import { bestExamRef, formatChunksForPrompt, ragSearch } from "@/lib/rag";
+import { validateCitations } from "@/lib/citations";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getSession } from "@/lib/session";
 
@@ -155,8 +156,10 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── 4. RAG : récupérer les passages les plus pertinents ─────────────
-  // Best-effort : si le rag-service est down, ragSearch renvoie [] et on
-  // continue sans contexte. Le hint reste utile.
+  // Best-effort : si le rag-service est down, ragSearch renvoie un résultat
+  // vide marqué low_confidence=true et on continue sans contexte. Le hint
+  // reste utile, mais le prompt explique au modèle qu'il doit raisonner sans
+  // s'appuyer sur des extraits (Phase 1 — anti-hallucination).
   const ragQuery = [
     focusQuestion?.trim(),
     correction?.trim(),
@@ -165,13 +168,16 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .join("\n")
     .slice(0, 2000);
-  const chunks = await ragSearch({
+  const ragResult = await ragSearch({
     subject: subject.id,
     query: ragQuery,
     top_k: 5,
   });
-  const ragContext = formatChunksForPrompt(chunks);
-  const similarExam = bestExamRef(chunks);
+  const { text: ragContext, included: ragChunks } = formatChunksForPrompt(
+    ragResult.chunks,
+  );
+  const similarExam = bestExamRef(ragResult.chunks);
+  const lowConfidence = ragResult.low_confidence;
 
   // ─── 5. Appel Groq ────────────────────────────────────────────────────
   const trimmedCorrection = correction?.trim();
@@ -185,7 +191,7 @@ export async function POST(req: NextRequest) {
       ? [
           {
             role: "system" as const,
-            content: buildExplainSystemPrompt(subject, chapter, ragContext),
+            content: buildExplainSystemPrompt(subject, chapter, ragContext, lowConfidence),
           },
           {
             role: "user" as const,
@@ -199,7 +205,7 @@ export async function POST(req: NextRequest) {
       : [
           {
             role: "system" as const,
-            content: buildSystemPrompt(subject, chapter, ragContext),
+            content: buildSystemPrompt(subject, chapter, ragContext, lowConfidence),
           },
           {
             role: "user" as const,
@@ -250,6 +256,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ─── 6. Validation des citations RAG (Phase 1 anti-hallucination) ────
+  // On extrait toutes les balises `[#N]` de la réponse, on vérifie qu'elles
+  // pointent vers un chunk effectivement injecté, et on remonte la liste des
+  // sources utilisées pour que l'UI puisse afficher un badge.
+  const citationStats = validateCitations(content, ragChunks);
+  if (citationStats.invalid.length > 0) {
+    console.warn(
+      "[hint] citations invalides — user=%s invalid=%j (modele a inventé une source ?)",
+      session.user_id,
+      citationStats.invalid,
+    );
+  }
+
   return NextResponse.json({
     hint: content,
     level,
@@ -264,5 +283,17 @@ export async function POST(req: NextRequest) {
     free_hints_remaining: freeHintsRemaining,
     // Référence d'examen similaire (null si aucun match RAG pertinent)
     similar_exam: similarExam,
+    // Phase 1 — anti-hallucination
+    rag: {
+      low_confidence: lowConfidence,
+      sources_used: citationStats.sourcesUsed,
+      citations: {
+        total: citationStats.raw.length,
+        unique: citationStats.unique.length,
+        valid: citationStats.valid.length,
+        invalid: citationStats.invalid.length,
+        accuracy: citationStats.accuracy,
+      },
+    },
   });
 }
