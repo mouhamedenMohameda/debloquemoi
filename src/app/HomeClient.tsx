@@ -808,28 +808,34 @@ export default function HomeClient({
         </div>
       )}
 
-      <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6 sm:py-10">
+      <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-10">
         {/* Toolbar : compteur de coût local + bouton Historique (non-sticky, plus léger sur mobile) */}
-        <div className="mb-4 flex items-center justify-end gap-2 text-xs text-slate-500 sm:mb-6">
-          {totalMRU > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
-              <span aria-hidden>💸</span>
-              <span>{formatMRU(totalMRU)} {t.common.mru}</span>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-black bg-gradient-to-r from-indigo-600 to-emerald-600 bg-clip-text text-transparent">
+              Débloque-moi 🎓
             </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition active:scale-95 hover:bg-slate-50"
-            title={t.home.historyTitle}
-          >
-            📚 <span className="hidden sm:inline">{t.home.historyTitle.replace("📚 ", "")}</span>
-            {savedSessions.length > 0 && (
-              <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
-                {savedSessions.length}
+          </div>
+          <div className="flex items-center gap-2">
+            {totalMRU > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 font-mono text-[11px] font-bold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                💸 {formatMRU(totalMRU)} {t.common.mru}
               </span>
             )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition active:scale-95 hover:bg-slate-50 cursor-pointer shadow-sm"
+              title={t.home.historyTitle}
+            >
+              📚 <span className="hidden sm:inline">{t.home.historyTitle.replace("📚 ", "")}</span>
+              {savedSessions.length > 0 && (
+                <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
+                  {savedSessions.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         <section className="mb-8 text-center sm:mb-10">
@@ -840,604 +846,769 @@ export default function HomeClient({
               {t.home.heroSubtitle}
             </span>
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 sm:text-base">
+          <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
             {t.home.heroDesc}
           </p>
         </section>
 
-        <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xl shadow-slate-200/50 sm:p-7">
-          {/* Tabs de mode */}
-          <div className="mb-5 flex gap-1 rounded-2xl bg-slate-100 p-1">
-            <ModeTab
-              active={mode === "correct"}
-              onClick={() => {
-                if (mode !== "correct") {
-                  setMode("correct");
-                  setGroups([]);
-                  setError(null);
-                }
-              }}
-            >
-              {t.home.modeCorrect}
-            </ModeTab>
-            <ModeTab
-              active={mode === "explain"}
-              onClick={() => {
-                if (mode !== "explain") {
-                  setMode("explain");
-                  setGroups([]);
-                  setError(null);
-                }
-              }}
-            >
-              {t.home.modeExplain}
-            </ModeTab>
-          </div>
+        {/* 2-Column Split Workspace Grid */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          
+          {/* Column 1: Config, Inputs & Actions (Left Side, 1/3 width) */}
+          <div className="lg:col-span-1 space-y-6">
+            
+            <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xl shadow-slate-200/50 sm:p-6">
+              
+              <h2 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {locale === "ar" ? "1. حدد وضع المساعدة" : "1. Mode d'assistance"}
+              </h2>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <SelectField
-              label={t.home.fieldSubject}
-              value={subjectId}
-              onChange={(id) => {
-                setSubjectId(id);
-                const s = SUBJECTS.find((x) => x.id === id)!;
-                setChapterId(s.chapters[0].id);
-              }}
-              options={SUBJECTS.map((s) => ({
-                value: s.id,
-                label: `${s.emoji} ${t.subjects[s.id as keyof typeof t.subjects] || s.name}`,
-              }))}
-            />
-            <SelectField
-              label={t.home.fieldChapter}
-              value={chapterId}
-              onChange={setChapterId}
-              options={subject.chapters.map((c) => ({
-                value: c.id,
-                label: t.chapters[c.id as keyof typeof t.chapters] || c.name,
-              }))}
-            />
-          </div>
-
-          <div
-            className={`mt-5 rounded-2xl transition ${
-              dragOver
-                ? "ring-4 ring-indigo-200 ring-offset-2"
-                : ""
-            }`}
-            data-drop-target="exercise"
-          >
-            <label className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <span>{t.home.fieldExercise}</span>
-              <span
-                className={`font-mono normal-case tracking-normal ${
-                  exercise.length > 0 ? "text-emerald-600" : "text-slate-400"
-                }`}
-              >
-                {t.home.exerciseLength
-                  .replace("{count}", String(exercise.length))
-                  .replace("{plural}", exercise.length > 1 ? "s" : "")}
-              </span>
-            </label>
-            <textarea
-              value={exercise}
-              onChange={(e) => setExercise(e.target.value)}
-              rows={5}
-              placeholder={t.home.exercisePlaceholder}
-              className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-            />
-
-            {/* Boutons photo (énoncé) */}
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <PhotoButton
-                variant="primary"
-                multiple
-                onChange={(file) => handleFile(file)}
-              >
-                {t.home.btnChoosePhotos}
-              </PhotoButton>
-              <PhotoButton
-                variant="secondary"
-                capture
-                onChange={(file) => handleFile(file)}
-              >
-                {t.home.btnTakePhoto}
-              </PhotoButton>
-            </div>
-            <p className="mt-1.5 text-[10px] text-slate-500">
-              {maxOcrCalls === 0 ? (
-                <>
-                  {t.home.msgInsufficientBalance.replace("{cost}", String(OCR_FLAT_COST_MRU))}
-                </>
-              ) : (
-                <>
-                  {t.home.msgPendingPhotos
-                    .replace("{count}", String(remainingOcrCalls))
-                    .replace("{plural}", remainingOcrCalls > 1 ? "s" : "")}
-                </>
-              )}
-            </p>
-
-            {pendingImages.length > 0 && (
-              <PendingImageList
-                previews={pendingImages}
-                loading={ocrLoading}
-                freeHintsRemaining={freeHintsRemaining}
-                onRemove={(i) =>
-                  setPendingImages((p) => p.filter((_, idx) => idx !== i))
-                }
-                onClearAll={() => setPendingImages([])}
-                onExtract={() => extractPendingOcr("exercise")}
-                label="énoncé"
-                locale={locale}
-              />
-            )}
-
-            {(imagePreviews.length > 0 || ocrLoading) && (
-              <div className="mt-3">
-                <ImagePreviewList
-                  previews={imagePreviews}
-                  ocrLoading={ocrLoading && pendingImages.length === 0}
-                  ocrUsage={ocrUsage}
-                  onClear={() => {
-                    setImagePreviews([]);
-                    setOcrUsage(null);
+              {/* Mode Cards Switcher */}
+              <div className="mb-6 grid grid-cols-2 gap-3">
+                
+                {/* Mode Indices */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (mode !== "correct") {
+                      setMode("correct");
+                      setGroups([]);
+                      setError(null);
+                    }
                   }}
-                  label="énoncé"
-                  locale={locale}
-                />
-              </div>
-            )}
-          </div>
-
-          <p className="mt-2 text-[11px] text-slate-400">
-            {t.home.tipIphone}
-          </p>
-
-          {/* === Mode "Expliquer" : second bloc pour la correction === */}
-          {mode === "explain" && (
-            <div
-              className={`mt-5 rounded-2xl transition ${
-                dragOver ? "ring-4 ring-amber-200 ring-offset-2" : ""
-              }`}
-              data-drop-target="correction"
-            >
-              <label className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <span>{t.home.fieldCorrection}</span>
-                <span
-                  className={`font-mono normal-case tracking-normal ${
-                    correction.length > 0 ? "text-emerald-600" : "text-slate-400"
+                  className={`group relative flex flex-col items-center justify-center rounded-2xl border-2 p-3 text-center transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
+                    mode === "correct"
+                      ? "border-indigo-600 bg-indigo-50/30 ring-4 ring-indigo-50"
+                      : "border-slate-100 bg-slate-50/50 hover:border-slate-200 hover:bg-slate-50"
                   }`}
                 >
-                  {t.home.exerciseLength
-                    .replace("{count}", String(correction.length))
-                    .replace("{plural}", correction.length > 1 ? "s" : "")}
-                </span>
-              </label>
-              <textarea
-                value={correction}
-                onChange={(e) => setCorrection(e.target.value)}
-                rows={6}
-                placeholder={t.home.correctionPlaceholder}
-                className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
-              />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-lg text-white shadow-sm group-hover:scale-105 transition-transform">
+                    💡
+                  </div>
+                  <span className="mt-2 block text-xs font-bold text-slate-800 leading-tight">
+                    {locale === "ar" ? "تلميحات متتالية" : "Indices pas-à-pas"}
+                  </span>
+                  {mode === "correct" && (
+                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-bold text-white">
+                      ✓
+                    </span>
+                  )}
+                </button>
 
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <PhotoButton
-                  variant="primary"
-                  multiple
-                  onChange={(file) => handleCorrectionFile(file)}
+                {/* Mode Explication */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (mode !== "explain") {
+                      setMode("explain");
+                      setGroups([]);
+                      setError(null);
+                    }
+                  }}
+                  className={`group relative flex flex-col items-center justify-center rounded-2xl border-2 p-3 text-center transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
+                    mode === "explain"
+                      ? "border-amber-500 bg-amber-50/30 ring-4 ring-amber-50"
+                      : "border-slate-100 bg-slate-50/50 hover:border-slate-200 hover:bg-slate-50"
+                  }`}
                 >
-                  {t.home.btnChoosePhotosCorrection}
-                </PhotoButton>
-                <PhotoButton
-                  variant="secondary"
-                  capture
-                  onChange={(file) => handleCorrectionFile(file)}
-                >
-                  {t.home.btnTakePhotoCorrection}
-                </PhotoButton>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-lg text-white shadow-sm group-hover:scale-105 transition-transform">
+                    📖
+                  </div>
+                  <span className="mt-2 block text-xs font-bold text-slate-800 leading-tight">
+                    {locale === "ar" ? "شرح ورقتي" : "Vérifier ma copie"}
+                  </span>
+                  {mode === "explain" && (
+                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white">
+                      ✓
+                    </span>
+                  )}
+                </button>
               </div>
 
-              {pendingCorrectionImages.length > 0 && (
-                <PendingImageList
-                  previews={pendingCorrectionImages}
-                  loading={correctionOcrLoading}
-                  freeHintsRemaining={Math.max(
-                    0,
-                    freeHintsRemaining - pendingImages.length,
-                  )}
-                  onRemove={(i) =>
-                    setPendingCorrectionImages((p) =>
-                      p.filter((_, idx) => idx !== i),
-                    )
-                  }
-                  onClearAll={() => setPendingCorrectionImages([])}
-                  onExtract={() => extractPendingOcr("correction")}
-                  label="correction"
-                  locale={locale}
+              {/* Subject & Chapter Selects */}
+              <h2 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {locale === "ar" ? "2. المادة والدرس" : "2. Matière & Chapitre"}
+              </h2>
+              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <SelectField
+                  label={t.home.fieldSubject}
+                  value={subjectId}
+                  onChange={(id) => {
+                    setSubjectId(id);
+                    const s = SUBJECTS.find((x) => x.id === id)!;
+                    setChapterId(s.chapters[0].id);
+                  }}
+                  options={SUBJECTS.map((s) => ({
+                    value: s.id,
+                    label: `${s.emoji} ${t.subjects[s.id as keyof typeof t.subjects] || s.name}`,
+                  }))}
                 />
+                <SelectField
+                  label={t.home.fieldChapter}
+                  value={chapterId}
+                  onChange={setChapterId}
+                  options={subject.chapters.map((c) => ({
+                    value: c.id,
+                    label: t.chapters[c.id as keyof typeof t.chapters] || c.name,
+                  }))}
+                />
+              </div>
+
+              {/* Statement Input Box */}
+              <h2 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {locale === "ar" ? "3. نص التمرين" : "3. Énoncé de l'exercice"}
+              </h2>
+              <div
+                className={`rounded-2xl transition ${
+                  dragOver ? "ring-4 ring-indigo-200 ring-offset-2" : ""
+                }`}
+                data-drop-target="exercise"
+              >
+                <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-500">
+                  <span>{t.home.fieldExercise}</span>
+                  <span className={exercise.length > 0 ? "text-emerald-600 font-mono" : "text-slate-400 font-mono"}>
+                    {t.home.exerciseLength
+                      .replace("{count}", String(exercise.length))
+                      .replace("{plural}", exercise.length > 1 ? "s" : "")}
+                  </span>
+                </div>
+                <textarea
+                  value={exercise}
+                  onChange={(e) => setExercise(e.target.value)}
+                  rows={4}
+                  placeholder={t.home.exercisePlaceholder}
+                  className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                />
+
+                {/* Photo buttons (énoncé) */}
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <PhotoButton
+                    variant="primary"
+                    multiple
+                    onChange={(file) => handleFile(file)}
+                  >
+                    {t.home.btnChoosePhotos}
+                  </PhotoButton>
+                  <PhotoButton
+                    variant="secondary"
+                    capture
+                    onChange={(file) => handleFile(file)}
+                  >
+                    {t.home.btnTakePhoto}
+                  </PhotoButton>
+                </div>
+                <p className="mt-1.5 text-[10px] text-slate-500 font-medium">
+                  {maxOcrCalls === 0 ? (
+                    <>{t.home.msgInsufficientBalance.replace("{cost}", String(OCR_FLAT_COST_MRU))}</>
+                  ) : (
+                    <>{t.home.msgPendingPhotos.replace("{count}", String(remainingOcrCalls)).replace("{plural}", remainingOcrCalls > 1 ? "s" : "")}</>
+                  )}
+                </p>
+
+                {pendingImages.length > 0 && (
+                  <PendingImageList
+                    previews={pendingImages}
+                    loading={ocrLoading}
+                    freeHintsRemaining={freeHintsRemaining}
+                    onRemove={(i) =>
+                      setPendingImages((p) => p.filter((_, idx) => idx !== i))
+                    }
+                    onClearAll={() => setPendingImages([])}
+                    onExtract={() => extractPendingOcr("exercise")}
+                    label="énoncé"
+                    locale={locale}
+                  />
+                )}
+
+                {(imagePreviews.length > 0 || ocrLoading) && (
+                  <div className="mt-2">
+                    <ImagePreviewList
+                      previews={imagePreviews}
+                      ocrLoading={ocrLoading && pendingImages.length === 0}
+                      ocrUsage={ocrUsage}
+                      onClear={() => {
+                        setImagePreviews([]);
+                        setOcrUsage(null);
+                      }}
+                      label="énoncé"
+                      locale={locale}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Explain Mode Correction input */}
+              {mode === "explain" && (
+                <div
+                  className={`mt-5 rounded-2xl border-t border-slate-100 pt-4 transition ${
+                    dragOver ? "ring-4 ring-amber-200 ring-offset-2" : ""
+                  }`}
+                  data-drop-target="correction"
+                >
+                  <h2 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {locale === "ar" ? "4. محاولتك / الحل المتوفر" : "4. Ta tentative de correction"}
+                  </h2>
+                  <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-500">
+                    <span>{t.home.fieldCorrection}</span>
+                    <span className={correction.length > 0 ? "text-emerald-600 font-mono" : "text-slate-400 font-mono"}>
+                      {t.home.exerciseLength
+                        .replace("{count}", String(correction.length))
+                        .replace("{plural}", correction.length > 1 ? "s" : "")}
+                    </span>
+                  </div>
+                  <textarea
+                    value={correction}
+                    onChange={(e) => setCorrection(e.target.value)}
+                    rows={4}
+                    placeholder={t.home.correctionPlaceholder}
+                    className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
+                  />
+
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <PhotoButton
+                      variant="primary"
+                      multiple
+                      onChange={(file) => handleCorrectionFile(file)}
+                    >
+                      {t.home.btnChoosePhotosCorrection}
+                    </PhotoButton>
+                    <PhotoButton
+                      variant="secondary"
+                      capture
+                      onChange={(file) => handleCorrectionFile(file)}
+                    >
+                      {t.home.btnTakePhotoCorrection}
+                    </PhotoButton>
+                  </div>
+
+                  {pendingCorrectionImages.length > 0 && (
+                    <PendingImageList
+                      previews={pendingCorrectionImages}
+                      loading={correctionOcrLoading}
+                      freeHintsRemaining={Math.max(
+                        0,
+                        freeHintsRemaining - pendingImages.length,
+                      )}
+                      onRemove={(i) =>
+                        setPendingCorrectionImages((p) =>
+                          p.filter((_, idx) => idx !== i),
+                        )
+                      }
+                      onClearAll={() => setPendingCorrectionImages([])}
+                      onExtract={() => extractPendingOcr("correction")}
+                      label="correction"
+                      locale={locale}
+                    />
+                  )}
+
+                  {(correctionImagePreviews.length > 0 || correctionOcrLoading) && (
+                    <div className="mt-2">
+                      <ImagePreviewList
+                        previews={correctionImagePreviews}
+                        ocrLoading={
+                          correctionOcrLoading && pendingCorrectionImages.length === 0
+                        }
+                        ocrUsage={correctionOcrUsage}
+                        onClear={() => {
+                          setCorrectionImagePreviews([]);
+                          setCorrectionOcrUsage(null);
+                        }}
+                        label="correction"
+                        locale={locale}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
 
-              {(correctionImagePreviews.length > 0 || correctionOcrLoading) && (
-                <div className="mt-3">
-                  <ImagePreviewList
-                    previews={correctionImagePreviews}
-                    ocrLoading={
-                      correctionOcrLoading && pendingCorrectionImages.length === 0
-                    }
-                    ocrUsage={correctionOcrUsage}
-                    onClear={() => {
-                      setCorrectionImagePreviews([]);
-                      setCorrectionOcrUsage(null);
+              <p className="mt-2 text-[10px] text-slate-400 leading-normal">
+                {t.home.tipIphone}
+              </p>
+
+              {/* Focus Question Area */}
+              {canSubmit && (
+                <div className="mt-4 border-t border-slate-100 pt-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {t.home.fieldFocus}
+                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-normal normal-case text-slate-500">
+                        {t.home.focusOptional}
+                      </span>
+                    </span>
+                  </div>
+
+                  {subQuestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <Chip
+                        active={!focusQuestion.trim()}
+                        onClick={() => {
+                          setTreatAll(true);
+                          setFocusQuestion("");
+                        }}
+                        badge={
+                          groups.find((g) => g.focusKey === FOCUS_KEY_ALL)?.hints
+                            .length
+                        }
+                      >
+                        {subQuestions.length === 1
+                          ? t.home.focusSingle
+                          : t.home.focusAll}
+                      </Chip>
+                      {subQuestions.map((q) => {
+                        const label = locale === "ar" ? `السؤال ${q}` : `Question ${q}`;
+                        const active = focusQuestion.trim() === label;
+                        const groupHits = groups.find((g) => g.focusKey === label)
+                          ?.hints.length;
+                        return (
+                          <Chip
+                            key={q}
+                            active={active}
+                            onClick={() => {
+                              if (active) {
+                                setTreatAll(true);
+                                setFocusQuestion("");
+                              } else {
+                                setTreatAll(false);
+                                setFocusQuestion(label);
+                              }
+                            }}
+                            badge={groupHits}
+                          >
+                            {q}
+                          </Chip>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <input
+                    type="text"
+                    value={focusQuestion}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFocusQuestion(v);
+                      setTreatAll(!v.trim());
                     }}
-                    label="correction"
-                    locale={locale}
+                    placeholder={
+                      subQuestions.length > 0
+                        ? (locale === "ar" ? "أو اكتب تفصيلاً حراً" : "Ou tape une précision libre")
+                        : t.home.focusPlaceholder
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                   />
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Focus Question et indicateur de coût */}
-          {canSubmit && (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {t.home.fieldFocus}
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal normal-case text-slate-500">
-                    {t.home.focusOptional}
-                  </span>
-                </span>
+              {/* Action Buttons & Progression */}
+              <div className="mt-5 border-t border-slate-100 pt-4 space-y-3">
+                
+                {canSubmit && (
+                  <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1 text-[10px] text-slate-600 w-fit font-medium">
+                    <span>💰</span>
+                    {freeHintsRemaining > 0 ? (
+                      <>{t.home.hintCostFree.replace("{count}", String(freeHintsRemaining)).replace("{plural}", freeHintsRemaining > 1 ? "s" : "")}</>
+                    ) : (
+                      <>{t.home.hintCostPaid.replace("{cost}", String(MIN_HINT_BALANCE_MRU))}</>
+                    )}
+                  </div>
+                )}
+
+                {(() => {
+                  const fanOutMode =
+                    mode === "correct" && treatAll && subQuestions.length >= 2;
+                  const explainMode = mode === "explain";
+                  const correctionReady = correction.trim().length >= 3;
+                  return (
+                    <div className="flex flex-wrap items-stretch gap-2">
+                      {explainMode ? (
+                        <button
+                          onClick={() => askHint(3)}
+                          disabled={
+                            loading ||
+                            ocrLoading ||
+                            correctionOcrLoading ||
+                            !canSubmit ||
+                            !correctionReady
+                          }
+                          className="group inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
+                        >
+                          {loading ? (
+                            <><Spinner /> {locale === "ar" ? "جاري قراءة التصحيح..." : "Lecture..."}</>
+                          ) : (
+                            <>
+                              <span className="text-base">📖</span>
+                              <span>{t.home.btnExplainCorrection}</span>
+                            </>
+                          )}
+                        </button>
+                      ) : fanOutMode ? (
+                        <button
+                          onClick={() => askAllQuestions()}
+                          disabled={loading || ocrLoading || !canSubmit}
+                          className="group inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
+                        >
+                          {loading ? (
+                            <>
+                              <Spinner />
+                              {fanProgress ? (
+                                <span>{locale === "ar" ? "السؤال" : "Question"} {fanProgress.label} ({fanProgress.current}/{fanProgress.total})</span>
+                              ) : (
+                                <span>{t.common.loading}</span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-base">✦</span>
+                              <span>{t.home.btnCorrectAll.replace("{count}", String(subQuestions.length))}</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => askHint()}
+                            disabled={loading || ocrLoading || !canAskMore || !canSubmit}
+                            className="group inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
+                          >
+                            {loading ? (
+                              <><Spinner /> {t.common.loading}</>
+                            ) : nextLevel ? (
+                              <>
+                                <span className="text-base">{levelLabels[nextLevel].icon}</span>
+                                <span>{levelButtons[nextLevel]}</span>
+                              </>
+                            ) : (
+                              t.home.btnLevelCompleted
+                            )}
+                          </button>
+
+                          {!hasSolution && canSubmit && nextLevel !== 3 && (
+                            <button
+                              onClick={() => askHint(3)}
+                              disabled={loading || ocrLoading}
+                              title={locale === "ar" ? "انتقل مباشرة إلى التصحيح الكامل" : "Saute directement à la correction complète"}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {locale === "ar" ? "✅ الحل المباشر" : "✅ Solution directe"}
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {(groups.length > 0 || exercise) && (
+                        <button
+                          onClick={fullReset}
+                          disabled={loading}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                        >
+                          {locale === "ar" ? "↻ جديد" : "↻ Nouveau"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Progression Bar */}
+                {canSubmit && mode === "correct" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    {([1, 2, 3] as const).map((lvl) => (
+                      <div
+                        key={lvl}
+                        className={`h-1.5 flex-1 rounded-full transition-all ${
+                          generatedLevels.has(lvl)
+                            ? `bg-gradient-to-r ${levelLabels[lvl].color}`
+                            : "bg-slate-100"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+
               </div>
 
-              {subQuestions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  <Chip
-                    active={!focusQuestion.trim()}
-                    onClick={() => {
-                      setTreatAll(true);
-                      setFocusQuestion("");
-                    }}
-                    badge={
-                      groups.find((g) => g.focusKey === FOCUS_KEY_ALL)?.hints
-                        .length
-                    }
-                  >
-                    {subQuestions.length === 1
-                      ? t.home.focusSingle
-                      : t.home.focusAll}
-                  </Chip>
-                  {subQuestions.map((q) => {
-                    const label = locale === "ar" ? `السؤال ${q}` : `Question ${q}`;
-                    const active = focusQuestion.trim() === label;
-                    const groupHits = groups.find((g) => g.focusKey === label)
-                      ?.hints.length;
-                    return (
-                      <Chip
-                        key={q}
-                        active={active}
-                        onClick={() => {
-                          if (active) {
-                            // Désélection → revient à "Tout l'exercice"
-                            setTreatAll(true);
-                            setFocusQuestion("");
-                          } else {
-                            setTreatAll(false);
-                            setFocusQuestion(label);
-                          }
-                        }}
-                        badge={groupHits}
-                      >
-                        {q}
-                      </Chip>
-                    );
-                  })}
+              {error && (
+                <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <span>⚠️</span>
+                  <span>{error}</span>
                 </div>
               )}
 
-              <input
-                type="text"
-                value={focusQuestion}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setFocusQuestion(v);
-                  // Si l'élève efface le texte, on revient au mode "Tout"
-                  setTreatAll(!v.trim());
-                }}
-                placeholder={
-                  subQuestions.length > 0
-                    ? (locale === "ar" ? "أو اكتب تفصيلاً حراً" : "Ou tape une précision libre")
-                    : t.home.focusPlaceholder
-                }
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-              />
-            </div>
-          )}
+            </section>
 
-          {/* Indication de coût */}
-          {canSubmit && (
-            <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 ring-1 ring-slate-200">
-              <span aria-hidden>💰</span>
-              {freeHintsRemaining > 0 ? (
-                <>
-                  {t.home.hintCostFree
-                    .replace("{count}", String(freeHintsRemaining))
-                    .replace("{plural}", freeHintsRemaining > 1 ? "s" : "")}
-                </>
-              ) : (
-                <>
-                  {t.home.hintCostPaid.replace("{cost}", String(MIN_HINT_BALANCE_MRU))}
-                </>
-              )}
-            </p>
-          )}
+          </div>
 
-          {/* Boutons d'action */}
-          {(() => {
-            const fanOutMode =
-              mode === "correct" && treatAll && subQuestions.length >= 2;
-            const explainMode = mode === "explain";
-            const correctionReady = correction.trim().length >= 3;
-            return (
-              <div className="mt-3 flex flex-wrap items-stretch gap-2">
-                {explainMode ? (
-                  // Mode "Expliquer une correction" : un seul bouton
-                  <button
-                    onClick={() => askHint(3)}
-                    disabled={
-                      loading ||
-                      ocrLoading ||
-                      correctionOcrLoading ||
-                      !canSubmit ||
-                      !correctionReady
-                    }
-                    className="group inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-200 transition hover:shadow-xl hover:shadow-amber-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
-                  >
-                    {loading ? (
-                      <>
-                        <Spinner /> {locale === "ar" ? "جاري قراءة التصحيح..." : "Lecture de la correction..."}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-lg">📖</span>
-                        <span>{t.home.btnExplainCorrection}</span>
-                      </>
-                    )}
-                  </button>
-                ) : fanOutMode ? (
-                  // Mode "Tout l'exercice" : un appel par question
-                  <button
-                    onClick={() => askAllQuestions()}
-                    disabled={loading || ocrLoading || !canSubmit}
-                    className="group inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:shadow-xl hover:shadow-indigo-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
-                  >
-                    {loading ? (
-                      <>
-                        <Spinner />
-                        {fanProgress ? (
-                          <span>
-                            {locale === "ar" ? "السؤال" : "Question"} {fanProgress.label} (
-                            {fanProgress.current}/{fanProgress.total})
-                          </span>
-                        ) : (
-                          <span>{t.common.loading}</span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-lg">✦</span>
-                        <span>
-                          {t.home.btnCorrectAll.replace("{count}", String(subQuestions.length))}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  // Mode normal : indice progressif
-                  <>
-                    <button
-                      onClick={() => askHint()}
-                      disabled={loading || ocrLoading || !canAskMore || !canSubmit}
-                      className="group inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:shadow-xl hover:shadow-indigo-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none sm:flex-none sm:px-6"
-                    >
-                      {loading ? (
-                        <>
-                          <Spinner /> {t.common.loading}
-                        </>
-                      ) : nextLevel ? (
-                        <>
-                          <span className="text-lg">
-                            {levelLabels[nextLevel].icon}
-                          </span>
-                          <span>{levelButtons[nextLevel]}</span>
-                        </>
-                      ) : (
-                        t.home.btnLevelCompleted
-                      )}
-                    </button>
-
-                    {!hasSolution && canSubmit && nextLevel !== 3 && (
-                      <button
-                        onClick={() => askHint(3)}
-                        disabled={loading || ocrLoading}
-                        title={locale === "ar" ? "انتقل مباشرة إلى التصحيح الكامل" : "Saute directement à la correction complète"}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {locale === "ar" ? "✅ الحل المباشر" : "✅ Solution directe"}
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {(groups.length > 0 || exercise) && (
-                  <button
-                    onClick={fullReset}
-                    disabled={loading}
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    {locale === "ar" ? "↻ البدء من جديد" : "↻ Recommencer"}
-                  </button>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Progression du groupe courant (mode "corriger" seulement) */}
-          {canSubmit && mode === "correct" && (
-            <div className="mt-4 flex items-center gap-2">
-              {([1, 2, 3] as const).map((lvl) => (
-                <div
-                  key={lvl}
-                  className={`h-1.5 flex-1 rounded-full transition-all ${
-                    generatedLevels.has(lvl)
-                      ? `bg-gradient-to-r ${levelLabels[lvl].color}`
-                      : "bg-slate-200"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              <span>⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-        </section>
-
-        {/* Tous les groupes de corrections */}
-        <section className="mt-6 space-y-6">
-          {groups.map((group, gi) => (
-            <article
-              key={group.focusKey}
-              ref={gi === groups.length - 1 ? lastGroupRef : null}
-              className="animate-in space-y-3"
-            >
-              <header className="flex items-center justify-between gap-2 px-1">
-                <h2
-                  className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider ${
-                    group.focusKey === currentKey
-                      ? "text-indigo-700"
-                      : "text-slate-500"
-                  }`}
-                >
-                  {group.focusKey === currentKey && (
-                    <span
-                      className="inline-block h-2 w-2 rounded-full bg-indigo-600"
-                      aria-label="actif"
-                    />
-                  )}
-                  {group.focusLabel}
-                </h2>
-                <button
-                  onClick={() => removeGroup(group.focusKey)}
-                  className="rounded-full px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                  title={locale === "ar" ? "حذف هذا التصحيح" : "Supprimer cette correction"}
-                >
-                  ✕
-                </button>
-              </header>
-              {group.hints.map((h) => {
-                const isExplain = h.mode === "explain";
-                const color = isExplain
-                  ? "from-amber-500 to-orange-600"
-                  : levelLabels[h.level].color;
-                const icon = isExplain ? "📖" : levelLabels[h.level].icon;
-                const title = isExplain
-                  ? (locale === "ar" ? "شرح التصحيح" : "Explication de la correction")
-                  : (locale === "ar"
-                      ? `التلميح ${h.level} من 3 — ${levelLabels[h.level].title}`
-                      : `Indice ${h.level} sur 3 — ${levelLabels[h.level].title}`);
-                return (
-                  <div
-                    key={h.level}
-                    className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/50"
-                  >
-                    <div
-                      className={`flex items-center justify-between gap-2 bg-gradient-to-r ${color} px-5 py-3 text-white`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{icon}</span>
-                        <span className="text-xs font-bold uppercase tracking-wider">
-                          {title}
-                        </span>
+          {/* Column 2: Resolution Space & Progressive Hints Rendering (Right Side, 2/3 width) */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Case A: Empty Workspace -> ShowGuided Visual Onboarding */}
+            {groups.length === 0 && (
+              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-10">
+                {locale === "ar" ? (
+                  <div className="space-y-8">
+                    <div className="text-center">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-indigo-50 text-3xl shadow-inner">
+                        💡
                       </div>
-                      {h.usage && <UsageBadge usage={h.usage} variant="light" />}
+                      <h2 className="mt-4 text-2xl font-black text-slate-800">كيف يعمل تطبيق "Débloque-moi" ؟</h2>
+                      <p className="mt-2 text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+                        مساعدك الشخصي الذكي لحل تمارين الرياضيات والفيزياء والكيمياء وفقًا لبرنامج الباكالوريا الموريتاني، لمساعدتك على الفهم والتعلم الذاتي.
+                      </p>
                     </div>
-                    <div className="px-5 py-5 text-[15px] leading-relaxed text-slate-800 sm:px-7 sm:py-6">
-                      <MathText text={h.text} />
-                      {h.similarExam && (
-                        <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
-                          <span aria-hidden>💡</span>
-                          <span>{locale === "ar" ? `مشابه لـ : ${h.similarExam}` : `Similaire à : ${h.similarExam}`}</span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      <div className="rounded-2xl border border-slate-100 bg-indigo-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white font-bold text-sm shadow-sm">
+                          ١
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">اختر المادة والدرس</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                          حدد تخصصك والدرس المطلوب لكي تتطابق المساعدات والتلميحات بدقة مع المنهج الدراسي للباكالوريا.
                         </p>
-                      )}
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 bg-sky-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500 text-white font-bold text-sm shadow-sm">
+                          ٢
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">أدخل نص التمرين أو صورته</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                          اكتب نص التمرين أو التقط صورة لورقتك. سيقوم الذكاء الاصطناعي بنسخ النص تلقائياً للبدء فوراً.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 bg-amber-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-sm shadow-sm">
+                          ٣
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">حدد وضع العمل</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500 flex flex-col gap-1">
+                          <span>• <strong>تلميحات متتالية</strong> : للحصول على مساعدة خطوة بخطوة.</span>
+                          <span>• <strong>شرح ورقتي</strong> : لتدقيق وتصحيح محاولتك في الحل.</span>
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 bg-emerald-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500 text-white font-bold text-sm shadow-sm">
+                          ٤
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">احصل على المساعدة</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                          انقر على الأزرار لطلب تلميحات تدريجية. لن نعطيك الإجابة مباشرة لكي نساعدك على التفكير السليم والتطور الذاتي !
+                        </p>
+                      </div>
+
                     </div>
                   </div>
-                );
-              })}
-            </article>
-          ))}
-        </section>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="text-center">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-indigo-50 text-3xl shadow-inner">
+                        💡
+                      </div>
+                      <h2 className="mt-4 text-2xl font-black text-slate-800">Comment fonctionne Débloque-moi ?</h2>
+                      <p className="mt-2 text-sm text-slate-500 max-w-lg mx-auto">
+                        Ton assistant personnel intelligent pour résoudre les exercices de Math, Physique & Chimie en Mauritanie. On t'aide à comprendre, on ne triche pas à ta place.
+                      </p>
+                    </div>
 
-        {totalMRU > 0 && (
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                {locale === "ar" ? "💸 التكلفة الإجمالية لهذا التمرين" : "💸 Coût total de cet exercice"}
-              </h3>
-              <div className="font-mono text-base font-bold text-indigo-700">
-                {formatMRU(totalMRU)} {t.common.mru}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      <div className="rounded-2xl border border-slate-100 bg-indigo-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 text-white font-bold text-sm shadow-sm">
+                          1
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">Matière & Chapitre</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                          Configure ta matière et le cours correspondant pour aligner les indices et méthodes sur le programme officiel mauritanien.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 bg-sky-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500 text-white font-bold text-sm shadow-sm">
+                          2
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">Énoncé en photo ou texte</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                          Saisis le texte ou prends une photo nette de ton cahier/feuille. Notre IA extrait l'énoncé en quelques secondes.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 bg-amber-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-sm shadow-sm">
+                          3
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">Choisis ta méthode</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500 flex flex-col gap-1">
+                          <span>• <strong>Indices pas-à-pas</strong> : pour réfléchir par étapes.</span>
+                          <span>• <strong>Vérifier ma copie</strong> : pour analyser ton propre brouillon et repérer tes erreurs.</span>
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 bg-emerald-50/20 p-5 transition hover:scale-[1.01]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500 text-white font-bold text-sm shadow-sm">
+                          4
+                        </div>
+                        <h3 className="mt-3 text-sm font-bold text-slate-800">Progresse intelligemment</h3>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                          Débloque les indices un à un. Nous ne donnons pas la réponse finale tout de suite pour te forcer à progresser de façon autonome !
+                        </p>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            <ul className="divide-y divide-slate-100 text-[13px]">
-              {ocrUsage && (
-                <UsageRow label={locale === "ar" ? "📸 قراءة الصورة (OCR)" : "📸 Lecture photo (OCR)"} usage={ocrUsage} />
-              )}
-              {groups.map((g) =>
-                g.hints.map((h) =>
-                  h.usage ? (
-                    <UsageRow
-                      key={`${g.focusKey}-${h.level}`}
-                      label={`${levelLabels[h.level].icon} ${g.focusLabel} — ${levelLabels[h.level].title}`}
-                      usage={h.usage}
-                    />
-                  ) : null,
-                ),
-              )}
-            </ul>
-          </section>
-        )}
+            )}
 
-        <footer className="mt-12 pb-8 text-center text-xs text-slate-400">
+            {/* Case B: Render Thread of Generated Corrections / Hints */}
+            {groups.length > 0 && (
+              <div className="space-y-6">
+                
+                {/* Hints Timeline */}
+                <div className="space-y-6">
+                  {groups.map((group, gi) => (
+                    <article
+                      key={group.focusKey}
+                      ref={gi === groups.length - 1 ? lastGroupRef : null}
+                      className="animate-in space-y-3"
+                    >
+                      <header className="flex items-center justify-between gap-2 px-1">
+                        <h3
+                          className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${
+                            group.focusKey === currentKey
+                              ? "text-indigo-700 font-extrabold"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {group.focusKey === currentKey && (
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse"
+                              aria-label="actif"
+                            />
+                          )}
+                          {group.focusLabel}
+                        </h3>
+                        <button
+                          onClick={() => removeGroup(group.focusKey)}
+                          className="rounded-full px-2 py-1 text-[10px] font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                          title={locale === "ar" ? "حذف هذا التصحيح" : "Supprimer cette correction"}
+                        >
+                          ✕
+                        </button>
+                      </header>
+                      
+                      <div className="space-y-4">
+                        {group.hints.map((h) => {
+                          const isExplain = h.mode === "explain";
+                          const color = isExplain
+                            ? "from-amber-500 to-orange-600"
+                            : levelLabels[h.level].color;
+                          const icon = isExplain ? "📖" : levelLabels[h.level].icon;
+                          const title = isExplain
+                            ? (locale === "ar" ? "شرح وتصحيح محاولتك" : "Explication de ta correction")
+                            : (locale === "ar"
+                                ? `التلميح ${h.level} من 3 — ${levelLabels[h.level].title}`
+                                : `Indice ${h.level} sur 3 — ${levelLabels[h.level].title}`);
+                          return (
+                            <div
+                              key={h.level}
+                              className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-lg shadow-slate-200/40 transition hover:shadow-xl"
+                            >
+                              <div
+                                className={`flex items-center justify-between gap-2 bg-gradient-to-r ${color} px-5 py-3.5 text-white`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl">{icon}</span>
+                                  <span className="text-xs font-black uppercase tracking-wider">
+                                    {title}
+                                  </span>
+                                </div>
+                                {h.usage && <UsageBadge usage={h.usage} variant="light" />}
+                              </div>
+                              <div className="px-5 py-5 text-[15px] leading-relaxed text-slate-800 sm:px-6 sm:py-6 prose max-w-none">
+                                <MathText text={h.text} />
+                                {h.similarExam && (
+                                  <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+                                    <span aria-hidden>💡</span>
+                                    <span>{locale === "ar" ? `مشابه لـ : ${h.similarExam}` : `Similaire à : ${h.similarExam}`}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {/* Session Cost Recap Box */}
+                {totalMRU > 0 && (
+                  <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/40">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        {locale === "ar" ? "💸 التكلفة الإجمالية لهذا التمرين" : "💸 Coût total de cet exercice"}
+                      </h3>
+                      <div className="font-mono text-base font-black text-indigo-700">
+                        {formatMRU(totalMRU)} {t.common.mru}
+                      </div>
+                    </div>
+                    <ul className="divide-y divide-slate-100 text-xs text-slate-600">
+                      {ocrUsage && (
+                        <UsageRow label={locale === "ar" ? "📸 قراءة الصورة (OCR)" : "📸 Lecture photo (OCR)"} usage={ocrUsage} />
+                      )}
+                      {groups.map((g) =>
+                        g.hints.map((h) =>
+                          h.usage ? (
+                            <UsageRow
+                              key={`${g.focusKey}-${h.level}`}
+                              label={`${levelLabels[h.level].icon} ${g.focusLabel} — ${levelLabels[h.level].title}`}
+                              usage={h.usage}
+                            />
+                          ) : null,
+                        ),
+                      )}
+                    </ul>
+                  </section>
+                )}
+
+              </div>
+            )}
+
+          </div>
+
+        </div>
+
+        {/* Footer info */}
+        <footer className="mt-16 pb-8 text-center text-xs text-slate-400">
           {locale === "ar" ? (
             <>
-              نسخة أولية للباكالوريا في موريتانيا · تلميح: يمكنك{" "}
-              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+              موقع مخصص للتحضير للباكالوريا في موريتانيا · تلميح: يمكنك{" "}
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] border border-slate-200 shadow-sm">
                 سحب
               </kbd>{" "}
               أو{" "}
-              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] border border-slate-200 shadow-sm">
                 لصق
               </kbd>{" "}
               صورة في أي مكان.
             </>
           ) : (
             <>
-              MVP Bac Mauritanie · Astuce : tu peux{" "}
-              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+              Plateforme de préparation au Bac Mauritanie · Astuce : tu peux{" "}
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] border border-slate-200 shadow-sm">
                 glisser
               </kbd>{" "}
               ou{" "}
-              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] border border-slate-200 shadow-sm">
                 coller
               </kbd>{" "}
-              une photo n&apos;importe où.
+              une photo n&apos;importe où pour la transcrire.
             </>
           )}
         </footer>
+
       </main>
     </div>
   );
