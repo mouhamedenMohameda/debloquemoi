@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { loginAction } from "../actions";
+import { useTranslation } from "@/components/LanguageProvider";
 
 export function LoginForm() {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -26,7 +28,7 @@ export function LoginForm() {
           htmlFor="email"
           className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600"
         >
-          Email
+          {t.auth.fieldEmail}
         </label>
         <input
           id="email"
@@ -44,7 +46,7 @@ export function LoginForm() {
           htmlFor="password"
           className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600"
         >
-          Mot de passe
+          {t.auth.fieldPassword}
         </label>
         <input
           id="password"
@@ -66,10 +68,11 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
-        {pending ? "Connexion..." : "Se connecter"}
+        {pending ? t.auth.btnConnecting : t.auth.btnConnect}
       </button>
     </form>
   );
 }
+

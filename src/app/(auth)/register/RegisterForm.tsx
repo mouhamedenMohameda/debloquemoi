@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { registerAction } from "../actions";
+import { useTranslation } from "@/components/LanguageProvider";
 
 export function RegisterForm() {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -20,7 +22,7 @@ export function RegisterForm() {
   return (
     <form action={onSubmit} className="space-y-4">
       <Field
-        label="Email"
+        label={t.auth.fieldEmail}
         name="email"
         type="email"
         autoComplete="email"
@@ -29,40 +31,41 @@ export function RegisterForm() {
       />
 
       <Field
-        label="Mot de passe (8 caractères min)"
+        label={t.auth.fieldPassword}
         name="password"
         type="password"
         autoComplete="new-password"
         required
         minLength={8}
+        hint={t.auth.passwordMinLength}
       />
 
       <Field
-        label="NNI"
+        label={t.auth.fieldNni}
         name="nni"
         type="text"
         inputMode="numeric"
         required
-        placeholder="N° de carte d'identité mauritanienne"
-        hint="Permet de récupérer ton compte si tu oublies ton mot de passe."
+        placeholder={t.auth.fieldNniPlaceholder}
+        hint={t.auth.fieldNniHint}
       />
 
       <Field
-        label="WhatsApp"
+        label={t.auth.fieldWhatsapp}
         name="whatsapp"
         type="tel"
         inputMode="tel"
         required
-        placeholder="+22245123456"
-        hint="Numéro avec indicatif (+222 pour Mauritanie)."
+        placeholder={t.auth.fieldWhatsappPlaceholder}
+        hint={t.auth.fieldWhatsappHint}
       />
 
       <Field
-        label="Code de parrainage (optionnel)"
+        label={t.auth.fieldReferralCode}
         name="referral_code"
         type="text"
-        placeholder="Code de l'ami qui t'invite"
-        hint="Vous recevez tous les deux un bonus si valide."
+        placeholder={t.auth.fieldReferralCodePlaceholder}
+        hint={t.auth.fieldReferralCodeHint}
       />
 
       {error && (
@@ -74,9 +77,9 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
-        {pending ? "Création..." : "Créer mon compte"}
+        {pending ? t.auth.btnRegistering : t.auth.btnRegister}
       </button>
     </form>
   );
@@ -103,3 +106,4 @@ function Field({
     </label>
   );
 }
+

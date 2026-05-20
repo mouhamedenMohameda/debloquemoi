@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { uploadTopupAction } from "./actions";
+import { useTranslation } from "@/components/LanguageProvider";
 
 export function TopupForm() {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -17,14 +19,15 @@ export function TopupForm() {
     const r = await uploadTopupAction(formData);
     setPending(false);
     if (r.ok) {
-      setSuccess(r.message);
+      // If server returned message, use it or fallback to translation
+      setSuccess(r.message || t.topup.uploadSuccess);
       setFileName(null);
       setPreviewUrl(null);
-      // Reset le champ file
+      // Reset the file field
       const input = document.getElementById("topup-file") as HTMLInputElement | null;
       if (input) input.value = "";
     } else {
-      setError(r.error);
+      setError(r.error || t.topup.uploadError);
     }
   }
 
@@ -49,17 +52,17 @@ export function TopupForm() {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={previewUrl}
-            alt="Aperçu"
+            alt="Preview"
             className="mx-auto max-h-60 rounded-lg shadow-sm"
           />
         ) : (
           <>
             <div className="text-3xl">📸</div>
             <div className="mt-2 text-sm font-semibold text-slate-700">
-              Clique pour choisir la capture
+              {t.topup.uploadDragText}
             </div>
             <div className="text-xs text-slate-500">
-              PNG, JPG, WEBP — max 6 Mo
+              {t.topup.uploadSizeTip}
             </div>
           </>
         )}
@@ -91,10 +94,11 @@ export function TopupForm() {
       <button
         type="submit"
         disabled={pending || !fileName}
-        className="w-full rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
       >
-        {pending ? "Envoi..." : "Envoyer la preuve"}
+        {pending ? t.topup.uploadBtnSending : t.topup.uploadBtnSend}
       </button>
     </form>
   );
 }
+

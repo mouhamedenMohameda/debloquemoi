@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { mruToUnits } from "@/lib/billing";
+import { mruToUnits, unitsForUsage } from "@/lib/billing";
 import { extractTextFromImage } from "@/lib/groq";
 import {
   AuthApiError,
@@ -135,17 +135,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ─── 5. Débit forfaitaire 1 MRU (sauf si free hint) ───────────────────
-  const units = OCR_FLAT_COST_UNITS;
+  // ─── 5. Débit réel avec marge (sauf si free hint) ─────────────────────
+  const units = unitsForUsage(usage);
   let balanceAfter: number | undefined;
   let debitStatus: "ok" | "skipped" | "failed" = "skipped";
-  if (!freeHintUsed) {
+  if (!freeHintUsed && units > 0) {
     try {
       const r = await walletDebit({
         user_id: session.user_id,
         amount_units: units,
         external_ref: `ocr-${Date.now()}`,
-        note: "OCR énoncé (forfait)",
+        note: "OCR énoncé",
       });
       balanceAfter = r.balance_mru;
       debitStatus = "ok";

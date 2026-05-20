@@ -10,11 +10,11 @@ export const USD_TO_MRU = 40;
 // 2.5 = on charge 2.5× le coût IA (marge brute 60%).
 export const PRICE_MARKUP = 2.5;
 
-// Tarification forfaitaire (prévisible pour le user — pas de surprise selon
-// la longueur du texte généré).
-//   - OCR : 1 MRU par photo, peu importe la taille du texte transcrit
+// Tarification & Estimations :
+//   - OCR : 1.0 MRU d'estimation (seuil minimum requis pour le solde du portefeuille avant l'appel),
+//     mais facturation finale au coût réel avec marge brute (comme pour les indices).
 //   - Hint : pas de forfait (débit du coût réel) mais solde minimum 0.5 MRU
-//     requis pour démarrer la requête
+//     requis pour démarrer la requête.
 export const OCR_FLAT_COST_MRU = 1.0;
 export const MIN_HINT_BALANCE_MRU = 0.5;
 

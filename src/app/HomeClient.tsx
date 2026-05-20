@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SUBJECTS } from "@/lib/subjects";
 import { MathText } from "@/components/MathText";
+import { useTranslation } from "@/components/LanguageProvider";
 import {
   MIN_HINT_BALANCE_MRU,
   OCR_FLAT_COST_MRU,
@@ -69,18 +70,19 @@ function makeSessionId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function sessionTitle(s: SavedSession): string {
+function sessionTitle(s: SavedSession, emptyText: string): string {
   const raw = (s.exercise || s.correction || "").trim();
   const cleaned = raw.replace(/\s+/g, " ").replace(/[#*`>]/g, "");
-  return cleaned.length > 60 ? cleaned.slice(0, 60) + "…" : cleaned || "(vide)";
+  return cleaned.length > 60 ? cleaned.slice(0, 60) + "…" : cleaned || emptyText;
 }
 
-function relativeTime(t: number): string {
+function relativeTime(t: number, tHome: any, locale: string): string {
   const d = (Date.now() - t) / 1000;
-  if (d < 60) return "à l'instant";
-  if (d < 3600) return `il y a ${Math.floor(d / 60)} min`;
-  if (d < 86400) return `il y a ${Math.floor(d / 3600)} h`;
-  return new Date(t).toLocaleDateString("fr-FR");
+  if (d < 60) return tHome.timeJustNow;
+  if (d < 3600) return tHome.timeMinutesAgo.replace("{count}", String(Math.floor(d / 60)));
+  if (d < 86400) return tHome.timeHoursAgo.replace("{count}", String(Math.floor(d / 3600)));
+  if (d < 604800) return tHome.timeDaysAgo.replace("{count}", String(Math.floor(d / 86400)));
+  return new Date(t).toLocaleDateString(locale === "ar" ? "ar-MR" : "fr-FR");
 }
 
 type HomeClientProps = {
@@ -94,8 +96,22 @@ export default function HomeClient({
   balanceMru,
   freeHintsRemaining,
 }: HomeClientProps) {
-  const HISTORY_KEY = historyKeyFor(userId);
   const router = useRouter();
+  const { t, locale } = useTranslation();
+
+  const levelLabels = useMemo(() => ({
+    1: { title: locale === "ar" ? "تلميح بسيط" : "Petit indice", icon: "💡", color: "from-amber-400 to-yellow-500" },
+    2: { title: locale === "ar" ? "تلميح أكثر دقة" : "Indice plus précis", icon: "🔍", color: "from-sky-400 to-indigo-500" },
+    3: { title: locale === "ar" ? "الحل الكامل" : "Solution complète", icon: "✅", color: "from-emerald-400 to-teal-500" },
+  }), [locale]);
+
+  const levelButtons = useMemo(() => ({
+    1: locale === "ar" ? "أنا عالق — تلميح" : "Je suis bloqué — un indice",
+    2: locale === "ar" ? "ما زلت عالقاً — تلميح أكثر دقة" : "Toujours bloqué — plus précis",
+    3: locale === "ar" ? "الحل الكامل" : "Solution complète",
+  }), [locale]);
+
+  const HISTORY_KEY = historyKeyFor(userId);
   // Nombre maximum d'OCR qu'on peut lancer avec le solde courant :
   // chaque photo = 1 free hint OU 1 MRU. Les photos déjà en file
   // « réservent » un crédit chacune (refus si on tente d'en queue de
@@ -530,7 +546,7 @@ export default function HomeClient({
     setError(null);
     for (let i = 0; i < subQuestions.length; i++) {
       const q = subQuestions[i];
-      const focusLabel = `Question ${q}`;
+      const focusLabel = locale === "ar" ? `السؤال ${q}` : `Question ${q}`;
       setFanProgress({ current: i + 1, total: subQuestions.length, label: q });
 
       // Si cette question a déjà une solution (niveau 3), on saute.
@@ -553,7 +569,7 @@ export default function HomeClient({
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(`Erreur sur ${focusLabel} : ${data.error ?? "inconnue"}`);
+          setError(locale === "ar" ? `خطأ في ${focusLabel} : ${data.error ?? "غير معروف"}` : `Erreur sur ${focusLabel} : ${data.error ?? "inconnue"}`);
           break;
         }
         router.refresh();
@@ -589,7 +605,7 @@ export default function HomeClient({
         });
       } catch (e) {
         setError(
-          `Erreur sur ${focusLabel} : ${e instanceof Error ? e.message : "inconnue"}`,
+          locale === "ar" ? `خطأ في ${focusLabel} : ${e instanceof Error ? e.message : "غير معروف"}` : `Erreur sur ${focusLabel} : ${e instanceof Error ? e.message : "inconnue"}`,
         );
         break;
       }
@@ -678,7 +694,7 @@ export default function HomeClient({
           <div className="rounded-3xl border-4 border-dashed border-indigo-500 bg-white px-10 py-8 text-center shadow-2xl">
             <div className="text-5xl">📸</div>
             <div className="mt-2 text-lg font-semibold text-indigo-700">
-              Lâche ta photo ici
+              {t.home.dragOverOverlay}
             </div>
           </div>
         </div>
@@ -691,11 +707,11 @@ export default function HomeClient({
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={() => setHistoryOpen(false)}
           />
-          <aside className="absolute right-0 top-0 flex h-full w-full flex-col bg-white shadow-2xl sm:w-[400px]">
+          <aside className={`absolute ${locale === "ar" ? "left-0" : "right-0"} top-0 flex h-full w-full flex-col bg-white shadow-2xl sm:w-[400px]`}>
             <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                📚 Historique
-                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                {t.home.historyTitle}
+                <span className={`rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 ${locale === "ar" ? "mr-1.5" : "ml-1.5"}`}>
                   {savedSessions.length}
                 </span>
               </h2>
@@ -703,7 +719,7 @@ export default function HomeClient({
                 type="button"
                 onClick={() => setHistoryOpen(false)}
                 className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Fermer"
+                aria-label={t.common.close}
               >
                 ✕
               </button>
@@ -715,18 +731,17 @@ export default function HomeClient({
                 onClick={newSession}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow active:scale-[0.98] hover:bg-indigo-700"
               >
-                ➕ Nouvelle session
+                {t.home.btnNewSession}
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               {savedSessions.length === 0 ? (
                 <div className="px-5 py-10 text-center text-sm text-slate-400">
-                  Aucune session sauvegardée pour l&apos;instant.
+                  {t.home.historyEmpty}
                   <br />
                   <span className="text-xs">
-                    Tes exercices apparaîtront ici dès qu&apos;une correction
-                    est générée.
+                    {t.home.historyEmptyDesc}
                   </span>
                 </div>
               ) : (
@@ -735,6 +750,7 @@ export default function HomeClient({
                     .sort((a, b) => b.updatedAt - a.updatedAt)
                     .map((s) => {
                       const subj = SUBJECTS.find((x) => x.id === s.subjectId);
+                      const subjName = subj ? (t.subjects[subj.id as keyof typeof t.subjects] || subj.name) : "•";
                       const isActive = s.id === currentSessionId;
                       return (
                         <li
@@ -751,18 +767,19 @@ export default function HomeClient({
                             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                               <span>{s.mode === "explain" ? "📖" : "✏️"}</span>
                               <span>{subj?.emoji ?? "•"}</span>
-                              <span className="truncate">{subj?.name}</span>
-                              <span className="ml-auto text-slate-400">
-                                {relativeTime(s.updatedAt)}
+                              <span className="truncate">{subjName}</span>
+                              <span className="ms-auto text-slate-400">
+                                {relativeTime(s.updatedAt, t.home, locale)}
                               </span>
                             </div>
                             <div className="mt-1 line-clamp-2 text-[13px] text-slate-800">
-                              {sessionTitle(s)}
+                              {sessionTitle(s, locale === "ar" ? "(فارغ)" : "(vide)")}
                             </div>
                             <div className="mt-1 text-[10px] text-slate-400">
-                              {s.groups.length} correction
-                              {s.groups.length > 1 ? "s" : ""}
-                              {s.mode === "explain" ? " · explication" : ""}
+                              {t.home.historyCorrectionsCount
+                                .replace("{count}", String(s.groups.length))
+                                .replace("{plural}", s.groups.length > 1 ? "s" : "")}
+                              {s.mode === "explain" ? ` · ${t.home.historyExplainMode}` : ""}
                             </div>
                           </button>
                           <button
@@ -770,14 +787,14 @@ export default function HomeClient({
                             onClick={() => {
                               if (
                                 confirm(
-                                  "Supprimer cette session de l'historique ?",
+                                  t.home.confirmDeleteSession,
                                 )
                               ) {
                                 deleteSession(s.id);
                               }
                             }}
                             className="px-3 text-slate-300 transition hover:bg-red-50 hover:text-red-600"
-                            aria-label="Supprimer"
+                            aria-label={t.home.toastDelete}
                           >
                             🗑
                           </button>
@@ -797,16 +814,16 @@ export default function HomeClient({
           {totalMRU > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
               <span aria-hidden>💸</span>
-              <span>{formatMRU(totalMRU)} MRU</span>
+              <span>{formatMRU(totalMRU)} {t.common.mru}</span>
             </span>
           )}
           <button
             type="button"
             onClick={() => setHistoryOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition active:scale-95 hover:bg-slate-50"
-            title="Voir l'historique"
+            title={t.home.historyTitle}
           >
-            📚 <span className="hidden sm:inline">Historique</span>
+            📚 <span className="hidden sm:inline">{t.home.historyTitle.replace("📚 ", "")}</span>
             {savedSessions.length > 0 && (
               <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
                 {savedSessions.length}
@@ -817,15 +834,14 @@ export default function HomeClient({
 
         <section className="mb-8 text-center sm:mb-10">
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
-            Bloqué sur un exercice ?
+            {t.home.heroTitle}
             <br />
             <span className="bg-gradient-to-r from-indigo-600 to-emerald-600 bg-clip-text text-transparent">
-              On te débloque, pas on te triche.
+              {t.home.heroSubtitle}
             </span>
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 sm:text-base">
-            3 niveaux d&apos;indices, du plus subtil à la correction complète.
-            Tu apprends en avançant, comme avec un vrai prof.
+            {t.home.heroDesc}
           </p>
         </section>
 
@@ -842,7 +858,7 @@ export default function HomeClient({
                 }
               }}
             >
-              ✏️ Corriger un exercice
+              {t.home.modeCorrect}
             </ModeTab>
             <ModeTab
               active={mode === "explain"}
@@ -854,13 +870,13 @@ export default function HomeClient({
                 }
               }}
             >
-              📖 Expliquer une correction
+              {t.home.modeExplain}
             </ModeTab>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <SelectField
-              label="Matière"
+              label={t.home.fieldSubject}
               value={subjectId}
               onChange={(id) => {
                 setSubjectId(id);
@@ -869,16 +885,16 @@ export default function HomeClient({
               }}
               options={SUBJECTS.map((s) => ({
                 value: s.id,
-                label: `${s.emoji} ${s.name}`,
+                label: `${s.emoji} ${t.subjects[s.id as keyof typeof t.subjects] || s.name}`,
               }))}
             />
             <SelectField
-              label="Chapitre"
+              label={t.home.fieldChapter}
               value={chapterId}
               onChange={setChapterId}
               options={subject.chapters.map((c) => ({
                 value: c.id,
-                label: c.name,
+                label: t.chapters[c.id as keyof typeof t.chapters] || c.name,
               }))}
             />
           </div>
@@ -892,20 +908,22 @@ export default function HomeClient({
             data-drop-target="exercise"
           >
             <label className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <span>✏️ Énoncé</span>
+              <span>{t.home.fieldExercise}</span>
               <span
                 className={`font-mono normal-case tracking-normal ${
                   exercise.length > 0 ? "text-emerald-600" : "text-slate-400"
                 }`}
               >
-                {exercise.length} caractère{exercise.length > 1 ? "s" : ""}
+                {t.home.exerciseLength
+                  .replace("{count}", String(exercise.length))
+                  .replace("{plural}", exercise.length > 1 ? "s" : "")}
               </span>
             </label>
             <textarea
               value={exercise}
               onChange={(e) => setExercise(e.target.value)}
               rows={5}
-              placeholder="Tape, colle, glisse une photo, ou utilise les boutons ci-dessous (plusieurs photos OK)."
+              placeholder={t.home.exercisePlaceholder}
               className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
             />
 
@@ -916,27 +934,26 @@ export default function HomeClient({
                 multiple
                 onChange={(file) => handleFile(file)}
               >
-                🖼️ Choisir des photos
+                {t.home.btnChoosePhotos}
               </PhotoButton>
               <PhotoButton
                 variant="secondary"
                 capture
                 onChange={(file) => handleFile(file)}
               >
-                📷 Prendre une photo
+                {t.home.btnTakePhoto}
               </PhotoButton>
             </div>
             <p className="mt-1.5 text-[10px] text-slate-500">
               {maxOcrCalls === 0 ? (
                 <>
-                  ⚠️ Solde insuffisant pour transcrire — il te faut au moins{" "}
-                  {OCR_FLAT_COST_MRU} MRU par photo.
+                  {t.home.msgInsufficientBalance.replace("{cost}", String(OCR_FLAT_COST_MRU))}
                 </>
               ) : (
                 <>
-                  Tu peux mettre en attente jusqu&apos;à {remainingOcrCalls}{" "}
-                  photo{remainingOcrCalls > 1 ? "s" : ""} avec ton solde
-                  actuel.
+                  {t.home.msgPendingPhotos
+                    .replace("{count}", String(remainingOcrCalls))
+                    .replace("{plural}", remainingOcrCalls > 1 ? "s" : "")}
                 </>
               )}
             </p>
@@ -952,6 +969,7 @@ export default function HomeClient({
                 onClearAll={() => setPendingImages([])}
                 onExtract={() => extractPendingOcr("exercise")}
                 label="énoncé"
+                locale={locale}
               />
             )}
 
@@ -966,15 +984,14 @@ export default function HomeClient({
                     setOcrUsage(null);
                   }}
                   label="énoncé"
+                  locale={locale}
                 />
               </div>
             )}
           </div>
 
           <p className="mt-2 text-[11px] text-slate-400">
-            💡 Sur iPhone : prends d&apos;abord les photos dans l&apos;app{" "}
-            <strong>Photos</strong>, puis reviens ici et choisis-en plusieurs
-            d&apos;un coup.
+            {t.home.tipIphone}
           </p>
 
           {/* === Mode "Expliquer" : second bloc pour la correction === */}
@@ -986,20 +1003,22 @@ export default function HomeClient({
               data-drop-target="correction"
             >
               <label className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <span>📋 Correction à expliquer</span>
+                <span>{t.home.fieldCorrection}</span>
                 <span
                   className={`font-mono normal-case tracking-normal ${
                     correction.length > 0 ? "text-emerald-600" : "text-slate-400"
                   }`}
                 >
-                  {correction.length} caractère{correction.length > 1 ? "s" : ""}
+                  {t.home.exerciseLength
+                    .replace("{count}", String(correction.length))
+                    .replace("{plural}", correction.length > 1 ? "s" : "")}
                 </span>
               </label>
               <textarea
                 value={correction}
                 onChange={(e) => setCorrection(e.target.value)}
                 rows={6}
-                placeholder="Colle la correction officielle / d'un livre / d'un prof. Glisse ou choisis plusieurs photos si elle s'étale sur plusieurs pages."
+                placeholder={t.home.correctionPlaceholder}
                 className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100"
               />
 
@@ -1009,14 +1028,14 @@ export default function HomeClient({
                   multiple
                   onChange={(file) => handleCorrectionFile(file)}
                 >
-                  🖼️ Choisir des photos
+                  {t.home.btnChoosePhotosCorrection}
                 </PhotoButton>
                 <PhotoButton
                   variant="secondary"
                   capture
                   onChange={(file) => handleCorrectionFile(file)}
                 >
-                  📷 Photographier la correction
+                  {t.home.btnTakePhotoCorrection}
                 </PhotoButton>
               </div>
 
@@ -1036,6 +1055,7 @@ export default function HomeClient({
                   onClearAll={() => setPendingCorrectionImages([])}
                   onExtract={() => extractPendingOcr("correction")}
                   label="correction"
+                  locale={locale}
                 />
               )}
 
@@ -1052,19 +1072,21 @@ export default function HomeClient({
                       setCorrectionOcrUsage(null);
                     }}
                     label="correction"
+                    locale={locale}
                   />
                 </div>
               )}
             </div>
           )}
 
+          {/* Focus Question et indicateur de coût */}
           {canSubmit && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  🎯 Focaliser sur une question ?
+                  {t.home.fieldFocus}
                   <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal normal-case text-slate-500">
-                    optionnel
+                    {t.home.focusOptional}
                   </span>
                 </span>
               </div>
@@ -1083,11 +1105,11 @@ export default function HomeClient({
                     }
                   >
                     {subQuestions.length === 1
-                      ? "Cet exercice"
-                      : "✦ Tout l'exercice"}
+                      ? t.home.focusSingle
+                      : t.home.focusAll}
                   </Chip>
                   {subQuestions.map((q) => {
-                    const label = `Question ${q}`;
+                    const label = locale === "ar" ? `السؤال ${q}` : `Question ${q}`;
                     const active = focusQuestion.trim() === label;
                     const groupHits = groups.find((g) => g.focusKey === label)
                       ?.hints.length;
@@ -1125,8 +1147,8 @@ export default function HomeClient({
                 }}
                 placeholder={
                   subQuestions.length > 0
-                    ? "Ou tape une précision libre"
-                    : "Optionnel — précise sur quoi tu bloques"
+                    ? (locale === "ar" ? "أو اكتب تفصيلاً حراً" : "Ou tape une précision libre")
+                    : t.home.focusPlaceholder
                 }
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
               />
@@ -1139,18 +1161,13 @@ export default function HomeClient({
               <span aria-hidden>💰</span>
               {freeHintsRemaining > 0 ? (
                 <>
-                  Prochain indice :{" "}
-                  <strong className="text-indigo-700">gratuit</strong> ·{" "}
-                  {freeHintsRemaining} restant
-                  {freeHintsRemaining > 1 ? "s" : ""}
+                  {t.home.hintCostFree
+                    .replace("{count}", String(freeHintsRemaining))
+                    .replace("{plural}", freeHintsRemaining > 1 ? "s" : "")}
                 </>
               ) : (
                 <>
-                  Prochain indice : ≈{" "}
-                  <strong className="text-slate-900">
-                    {MIN_HINT_BALANCE_MRU} MRU
-                  </strong>{" "}
-                  (min. requis)
+                  {t.home.hintCostPaid.replace("{cost}", String(MIN_HINT_BALANCE_MRU))}
                 </>
               )}
             </p>
@@ -1179,12 +1196,12 @@ export default function HomeClient({
                   >
                     {loading ? (
                       <>
-                        <Spinner /> Lecture de la correction...
+                        <Spinner /> {locale === "ar" ? "جاري قراءة التصحيح..." : "Lecture de la correction..."}
                       </>
                     ) : (
                       <>
                         <span className="text-lg">📖</span>
-                        <span>Explique-moi la correction</span>
+                        <span>{t.home.btnExplainCorrection}</span>
                       </>
                     )}
                   </button>
@@ -1200,18 +1217,18 @@ export default function HomeClient({
                         <Spinner />
                         {fanProgress ? (
                           <span>
-                            Question {fanProgress.label} (
+                            {locale === "ar" ? "السؤال" : "Question"} {fanProgress.label} (
                             {fanProgress.current}/{fanProgress.total})
                           </span>
                         ) : (
-                          <span>Réflexion...</span>
+                          <span>{t.common.loading}</span>
                         )}
                       </>
                     ) : (
                       <>
                         <span className="text-lg">✦</span>
                         <span>
-                          Corriger toutes les questions ({subQuestions.length})
+                          {t.home.btnCorrectAll.replace("{count}", String(subQuestions.length))}
                         </span>
                       </>
                     )}
@@ -1226,17 +1243,17 @@ export default function HomeClient({
                     >
                       {loading ? (
                         <>
-                          <Spinner /> Réflexion...
+                          <Spinner /> {t.common.loading}
                         </>
                       ) : nextLevel ? (
                         <>
                           <span className="text-lg">
-                            {LEVEL_LABEL[nextLevel].icon}
+                            {levelLabels[nextLevel].icon}
                           </span>
-                          <span>{LEVEL_BUTTON[nextLevel]}</span>
+                          <span>{levelButtons[nextLevel]}</span>
                         </>
                       ) : (
-                        "✓ Tout généré"
+                        t.home.btnLevelCompleted
                       )}
                     </button>
 
@@ -1244,10 +1261,10 @@ export default function HomeClient({
                       <button
                         onClick={() => askHint(3)}
                         disabled={loading || ocrLoading}
-                        title="Saute directement à la correction complète"
+                        title={locale === "ar" ? "انتقل مباشرة إلى التصحيح الكامل" : "Saute directement à la correction complète"}
                         className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        ✅ Solution directe
+                        {locale === "ar" ? "✅ الحل المباشر" : "✅ Solution directe"}
                       </button>
                     )}
                   </>
@@ -1259,7 +1276,7 @@ export default function HomeClient({
                     disabled={loading}
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
                   >
-                    ↻ Recommencer
+                    {locale === "ar" ? "↻ البدء من جديد" : "↻ Recommencer"}
                   </button>
                 )}
               </div>
@@ -1274,7 +1291,7 @@ export default function HomeClient({
                   key={lvl}
                   className={`h-1.5 flex-1 rounded-full transition-all ${
                     generatedLevels.has(lvl)
-                      ? `bg-gradient-to-r ${LEVEL_LABEL[lvl].color}`
+                      ? `bg-gradient-to-r ${levelLabels[lvl].color}`
                       : "bg-slate-200"
                   }`}
                 />
@@ -1317,7 +1334,7 @@ export default function HomeClient({
                 <button
                   onClick={() => removeGroup(group.focusKey)}
                   className="rounded-full px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                  title="Supprimer cette correction"
+                  title={locale === "ar" ? "حذف هذا التصحيح" : "Supprimer cette correction"}
                 >
                   ✕
                 </button>
@@ -1326,11 +1343,13 @@ export default function HomeClient({
                 const isExplain = h.mode === "explain";
                 const color = isExplain
                   ? "from-amber-500 to-orange-600"
-                  : LEVEL_LABEL[h.level].color;
-                const icon = isExplain ? "📖" : LEVEL_LABEL[h.level].icon;
+                  : levelLabels[h.level].color;
+                const icon = isExplain ? "📖" : levelLabels[h.level].icon;
                 const title = isExplain
-                  ? "Explication de la correction"
-                  : `Indice ${h.level} sur 3 — ${LEVEL_LABEL[h.level].title}`;
+                  ? (locale === "ar" ? "شرح التصحيح" : "Explication de la correction")
+                  : (locale === "ar"
+                      ? `التلميح ${h.level} من 3 — ${levelLabels[h.level].title}`
+                      : `Indice ${h.level} sur 3 — ${levelLabels[h.level].title}`);
                 return (
                   <div
                     key={h.level}
@@ -1352,7 +1371,7 @@ export default function HomeClient({
                       {h.similarExam && (
                         <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
                           <span aria-hidden>💡</span>
-                          <span>Similaire à : {h.similarExam}</span>
+                          <span>{locale === "ar" ? `مشابه لـ : ${h.similarExam}` : `Similaire à : ${h.similarExam}`}</span>
                         </p>
                       )}
                     </div>
@@ -1367,22 +1386,22 @@ export default function HomeClient({
           <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                💸 Coût total de cet exercice
+                {locale === "ar" ? "💸 التكلفة الإجمالية لهذا التمرين" : "💸 Coût total de cet exercice"}
               </h3>
               <div className="font-mono text-base font-bold text-indigo-700">
-                {formatMRU(totalMRU)} MRU
+                {formatMRU(totalMRU)} {t.common.mru}
               </div>
             </div>
             <ul className="divide-y divide-slate-100 text-[13px]">
               {ocrUsage && (
-                <UsageRow label="📸 Lecture photo (OCR)" usage={ocrUsage} />
+                <UsageRow label={locale === "ar" ? "📸 قراءة الصورة (OCR)" : "📸 Lecture photo (OCR)"} usage={ocrUsage} />
               )}
               {groups.map((g) =>
                 g.hints.map((h) =>
                   h.usage ? (
                     <UsageRow
                       key={`${g.focusKey}-${h.level}`}
-                      label={`${LEVEL_LABEL[h.level].icon} ${g.focusLabel} — ${LEVEL_LABEL[h.level].title}`}
+                      label={`${levelLabels[h.level].icon} ${g.focusLabel} — ${levelLabels[h.level].title}`}
                       usage={h.usage}
                     />
                   ) : null,
@@ -1393,15 +1412,31 @@ export default function HomeClient({
         )}
 
         <footer className="mt-12 pb-8 text-center text-xs text-slate-400">
-          MVP Bac Mauritanie · Astuce : tu peux{" "}
-          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
-            glisser
-          </kbd>{" "}
-          ou{" "}
-          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
-            coller
-          </kbd>{" "}
-          une photo n&apos;importe où.
+          {locale === "ar" ? (
+            <>
+              نسخة أولية للباكالوريا في موريتانيا · تلميح: يمكنك{" "}
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+                سحب
+              </kbd>{" "}
+              أو{" "}
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+                لصق
+              </kbd>{" "}
+              صورة في أي مكان.
+            </>
+          ) : (
+            <>
+              MVP Bac Mauritanie · Astuce : tu peux{" "}
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+                glisser
+              </kbd>{" "}
+              ou{" "}
+              <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px]">
+                coller
+              </kbd>{" "}
+              une photo n&apos;importe où.
+            </>
+          )}
         </footer>
       </main>
     </div>
@@ -1490,7 +1525,7 @@ function Chip({
       {children}
       {badge !== undefined && badge > 0 && (
         <span
-          className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold ${
+          className={`inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold mx-0.5 ${
             active ? "bg-white/30 text-white" : "bg-emerald-500 text-white"
           }`}
           title={`${badge} correction${badge > 1 ? "s" : ""} disponible${badge > 1 ? "s" : ""}`}
@@ -1549,6 +1584,7 @@ function PendingImageList({
   onClearAll,
   onExtract,
   label,
+  locale,
 }: {
   previews: string[];
   loading: boolean;
@@ -1557,6 +1593,7 @@ function PendingImageList({
   onClearAll: () => void;
   onExtract: () => void;
   label: string;
+  locale: string;
 }) {
   const count = previews.length;
   if (count === 0) return null;
@@ -1566,17 +1603,27 @@ function PendingImageList({
   const mruCost = willUseMru * OCR_FLAT_COST_MRU;
   let costSummary: string;
   if (willUseFree > 0 && willUseMru > 0) {
-    costSummary = `${willUseFree} gratuite${willUseFree > 1 ? "s" : ""} + ${mruCost} MRU`;
+    costSummary = locale === "ar"
+      ? `${willUseFree} مجانية + ${mruCost} أوقية`
+      : `${willUseFree} gratuite${willUseFree > 1 ? "s" : ""} + ${mruCost} MRU`;
   } else if (willUseFree > 0) {
-    costSummary = `${willUseFree} gratuite${willUseFree > 1 ? "s" : ""}`;
+    costSummary = locale === "ar"
+      ? `${willUseFree} مجانية`
+      : `${willUseFree} gratuite${willUseFree > 1 ? "s" : ""}`;
   } else {
-    costSummary = `${mruCost} MRU`;
+    costSummary = locale === "ar"
+      ? `${mruCost} أوقية`
+      : `${mruCost} MRU`;
   }
   return (
     <div className="mt-3 space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-          ⏳ {count} photo{count > 1 ? "s" : ""} {label} en attente
+          {locale === "ar" ? (
+            `⏳ ${count} صورة في الانتظار (${label === "énoncé" ? "نص التمرين" : "التصحيح"})`
+          ) : (
+            `⏳ ${count} photo${count > 1 ? "s" : ""} ${label} en attente`
+          )}
         </span>
         <button
           type="button"
@@ -1584,7 +1631,7 @@ function PendingImageList({
           disabled={loading}
           className="text-[11px] font-medium text-slate-500 underline-offset-2 hover:underline disabled:opacity-50"
         >
-          tout retirer
+          {locale === "ar" ? "إزالة الكل" : "tout retirer"}
         </button>
       </div>
       <div className="flex gap-1.5 overflow-x-auto py-1">
@@ -1603,7 +1650,7 @@ function PendingImageList({
               type="button"
               onClick={() => onRemove(i)}
               disabled={loading}
-              aria-label={`Retirer la photo ${i + 1}`}
+              aria-label={locale === "ar" ? `إزالة الصورة ${i + 1}` : `Retirer la photo ${i + 1}`}
               className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-[11px] font-bold text-white hover:bg-black disabled:opacity-50"
             >
               ✕
@@ -1622,15 +1669,18 @@ function PendingImageList({
       >
         {loading ? (
           <>
-            <Spinner /> Transcription…
+            <Spinner /> {locale === "ar" ? "جاري النسخ..." : "Transcription…"}
           </>
         ) : (
-          <>📝 Extraire le texte — {costSummary}</>
+          <>{locale === "ar" ? `📝 استخراج النص — ${costSummary}` : `📝 Extraire le texte — ${costSummary}`}</>
         )}
       </button>
-      <p className="text-[10px] text-amber-700/80">
-        Forfait {OCR_FLAT_COST_MRU} MRU par photo, peu importe la longueur du
-        texte. Vérifie d&apos;abord que les photos sont nettes.
+      <p className="text-[10px] text-amber-700/80 font-medium">
+        {locale === "ar" ? (
+          `تقدير ${OCR_FLAT_COST_MRU} أوقية لكل صورة (الحد الأدنى المطلوب). سيتم خصم التكلفة الحقيقية للذكاء الاصطناعي فقط في النهاية.`
+        ) : (
+          `Estimation de ${OCR_FLAT_COST_MRU} MRU par photo (seuil requis). Seul le coût réel de l'IA (avec marge) est facturé à la fin.`
+        )}
       </p>
     </div>
   );
@@ -1642,12 +1692,14 @@ function ImagePreviewList({
   ocrUsage,
   onClear,
   label,
+  locale,
 }: {
   previews: string[];
   ocrLoading: boolean;
   ocrUsage: Usage | null;
   onClear: () => void;
   label: string;
+  locale: string;
 }) {
   const count = previews.length;
   return (
@@ -1677,20 +1729,23 @@ function ImagePreviewList({
             onClick={onClear}
             className="flex-shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
-            ✕ Retirer tout
+            {locale === "ar" ? "✕ إزالة الكل" : "✕ Retirer tout"}
           </button>
         </div>
       )}
       {ocrLoading && (
         <div className="flex items-center gap-2 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-700">
-          <Spinner /> Lecture en cours...
+          <Spinner /> {locale === "ar" ? "جاري القراءة..." : "Lecture en cours..."}
         </div>
       )}
       {!ocrLoading && ocrUsage && count > 0 && (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
           <span className="font-semibold uppercase tracking-wide">
-            ✓ {count} photo{count > 1 ? "s" : ""} transcrite
-            {count > 1 ? "s" : ""}
+            {locale === "ar" ? (
+              `✓ تم نسخ ${count} صورة`
+            ) : (
+              `✓ ${count} photo${count > 1 ? "s" : ""} transcrite${count > 1 ? "s" : ""}`
+            )}
           </span>
           <UsageBadge usage={ocrUsage} variant="dark" />
         </div>

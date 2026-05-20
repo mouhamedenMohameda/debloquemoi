@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { RegisterForm } from "./RegisterForm";
+import { getTranslationsServer } from "@/lib/i18n";
 
-export const metadata = {
-  title: "Créer un compte — Débloque-moi",
-};
+export async function generateMetadata() {
+  const { t } = await getTranslationsServer();
+  return {
+    title: `${t.auth.registerTitle} — Débloque-moi`,
+  };
+}
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const { t } = await getTranslationsServer();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/40 to-emerald-50/40 px-4 py-10">
       <div className="w-full max-w-md">
@@ -14,10 +20,10 @@ export default function RegisterPage() {
             🎓
           </div>
           <h1 className="mt-3 text-2xl font-extrabold text-slate-900">
-            Créer un compte
+            {t.auth.registerTitle}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            🎁 <strong>10 corrections gratuites</strong> pendant 24h à l&apos;inscription
+            {t.auth.registerPromo}
           </p>
         </div>
 
@@ -26,15 +32,16 @@ export default function RegisterPage() {
         </div>
 
         <p className="mt-4 text-center text-sm text-slate-600">
-          Déjà inscrit ?{" "}
+          {t.auth.hasAccount}{" "}
           <Link
             href="/login"
             className="font-semibold text-indigo-600 hover:text-indigo-700"
           >
-            Se connecter
+            {t.auth.loginLink}
           </Link>
         </p>
       </div>
     </div>
   );
 }
+

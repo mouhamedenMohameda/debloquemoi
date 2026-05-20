@@ -13,7 +13,7 @@ export default async function Page() {
   if (!session) redirect("/login");
 
   // Crédits courants : utilisés pour limiter le nombre de photos en attente
-  // (chaque OCR coûte 1 MRU forfaitaire). Si une erreur survient, on
+  // (chaque OCR estime 1 MRU pour la vérification du solde). Si une erreur survient, on
   // démarre prudemment à 0.
   const jwt = await getJwt();
   const [walletRes, creditsRes] = await Promise.all([
