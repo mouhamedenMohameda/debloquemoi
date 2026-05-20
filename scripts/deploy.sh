@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 # Déploiement sûr de Débloque-moi (Next.js).
 #
-# Pas de DB SQL côté Next.js, mais on snapshot .env.local (contient les clés
-# API critiques : GROQ, AUTH_API_S2S, RAG_S2S, etc.) avant chaque pull.
-#
-# Séquence : backup .env + git pull + npm install si pkg.json modifié +
-# npm run build + systemctl restart + health check.
+# Séquence :
+#   1) Backup DB SQLite + .env.local via backup.sh (refuse de continuer si KO)
+#   2) git fetch + affiche les commits entrants
+#   3) git pull --ff-only
+#   4) npm install si package.json a bougé
+#   5) npm run build
+#   6) systemctl restart + health check
 #
 # Usage :
 #   bash /opt/debloquemoi/scripts/deploy.sh
-#   bash /opt/debloquemoi/scripts/deploy.sh --no-pull
+#   bash /opt/debloquemoi/scripts/deploy.sh --no-pull   # backup + restart seulement
 
 set -euo pipefail
 
 REPO_DIR="${DEBLOQUEMOI_REPO:-/opt/debloquemoi}"
 SERVICE="${DEBLOQUEMOI_SERVICE:-debloquemoi}"
-BACKUP_DIR="${DEBLOQUEMOI_BACKUP_DIR:-/opt/debloquemoi/.backups}"
-ENV_FILE="${DEBLOQUEMOI_ENV:-/opt/debloquemoi/.env.local}"
-KEEP="${DEBLOQUEMOI_BACKUPS_KEEP:-30}"
 
 NO_PULL=0
 for arg in "$@"; do
@@ -29,19 +28,9 @@ done
 
 cd "$REPO_DIR"
 
-# ─── 1. Backup .env.local ──────────────────────────────────────────────────
-echo "═══ 1. Backup .env.local ═══"
-mkdir -p "$BACKUP_DIR"
-TS=$(date +%Y%m%d-%H%M%S)
-if [ -f "$ENV_FILE" ]; then
-  cp -p "$ENV_FILE" "$BACKUP_DIR/env-$TS.txt"
-  chmod 600 "$BACKUP_DIR/env-$TS.txt"
-  echo "[backup] $BACKUP_DIR/env-$TS.txt"
-  # Rotation
-  ls -1t "$BACKUP_DIR"/env-*.txt 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm --
-else
-  echo "[backup] (.env.local introuvable — skip)"
-fi
+# ─── 1. Backup DB SQLite + .env.local ─────────────────────────────────────
+echo "═══ 1. Backup DB + .env.local ═══"
+bash "$REPO_DIR/scripts/backup.sh"
 
 # ─── 2. Pull ──────────────────────────────────────────────────────────────
 if [ "$NO_PULL" -eq 0 ]; then
