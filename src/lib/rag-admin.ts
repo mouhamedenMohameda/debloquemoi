@@ -12,20 +12,25 @@ const S2S_KEY = process.env.RAG_S2S_KEY ?? "";
 
 export type ExerciceListItem = {
   id: string;
+  titre?: string;
   matiere_id: string;
   filiere_id: string;
   fichier: string;
   annee: number;
   session: string;
+  exercice_numero?: string | number;
   chapitre: string;
   notions_count: number;
   ennonce_preview: string;
+  has_correction: boolean;
+  is_skeleton: boolean;
   validated_by_admin: boolean;
   updated_at: string | null;
 };
 
 export type ExerciceFull = {
   id: string;
+  titre?: string;
   matiere_id: string;
   filiere_id: string;
   fichier: string;
@@ -38,16 +43,28 @@ export type ExerciceFull = {
   chapitres?: string[];
   notions_traitees: string[];
   ennonce_complet: string;
+  correction?: string;
   donnees_fournies?: Record<string, unknown>;
   validated_by_admin?: boolean;
+  is_skeleton?: boolean;
   updated_at?: string;
 };
 
 export type ExerciceUpdate = {
   ennonce_complet?: string;
+  correction?: string;
   notions_traitees?: string[];
   chapitre?: string;
+  fichier?: string;
   validated_by_admin?: boolean;
+};
+
+export type ExerciceCreate = {
+  filiere_id: "C" | "D";
+  matiere_id: "math" | "pc" | "svt";
+  annee: number;
+  session: "Normale" | "Complémentaire";
+  exercice_numero: number;
 };
 
 export type AdminStats = {
@@ -98,6 +115,7 @@ export async function listExercises(params: {
   filiere?: string;
   annee?: number;
   validated?: boolean;
+  skeleton?: boolean;
   q?: string;
   sort?: "chronological" | "unvalidated_first" | "id";
   limit?: number;
@@ -108,11 +126,20 @@ export async function listExercises(params: {
   if (params.filiere) qs.set("filiere", params.filiere);
   if (params.annee) qs.set("annee", String(params.annee));
   if (params.validated !== undefined) qs.set("validated", String(params.validated));
+  if (params.skeleton !== undefined) qs.set("skeleton", String(params.skeleton));
   if (params.q) qs.set("q", params.q);
   if (params.sort) qs.set("sort", params.sort);
   if (params.limit) qs.set("limit", String(params.limit));
   if (params.offset) qs.set("offset", String(params.offset));
   return call(`/admin/exercises?${qs.toString()}`);
+}
+
+export async function createExercise(body: ExerciceCreate): Promise<ExerciceFull> {
+  return call(`/admin/exercises`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function deleteExercise(id: string): Promise<{ deleted: boolean; id: string }> {
+  return call(`/admin/exercises/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export async function getExercise(id: string): Promise<ExerciceFull> {
