@@ -51,7 +51,9 @@ type Stats = {
 type Neighbors = { prev: string | null; next: string | null; position: number | null; total: number };
 
 const MATIERES = ["math", "physique", "chimie", "svt"] as const;
-const FILIERES = ["C", "D", "TM", "M"] as const;
+// Mauritanie 2026 : 2 filières effectives. C couvre math/physique/chimie
+// (et regroupe les anciennes M/TM/TMGM/MA). D = SVT.
+const FILIERES = ["C", "D"] as const;
 
 export function ExercicesEditor() {
   // ── Filtres
