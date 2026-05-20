@@ -51,10 +51,12 @@ type Stats = {
 type Neighbors = { prev: string | null; next: string | null; position: number | null; total: number };
 
 const MATIERES = ["math", "physique", "chimie", "svt"] as const;
+const FILIERES = ["C", "D", "TM", "M"] as const;
 
 export function ExercicesEditor() {
   // ── Filtres
   const [matiere, setMatiere] = useState<string>("");
+  const [filiere, setFiliere] = useState<string>("");
   const [onlyUnvalidated, setOnlyUnvalidated] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -79,11 +81,13 @@ export function ExercicesEditor() {
   // ── Charge la liste (et les stats)
   const reloadList = useCallback(async () => {
     setLoadingList(true);
-    const qs = new URLSearchParams({ limit: "200" });
+    const qs = new URLSearchParams({ limit: "500" });
     if (matiere) qs.set("matiere", matiere);
+    if (filiere) qs.set("filiere", filiere);
     if (onlyUnvalidated) qs.set("validated", "false");
     if (search.trim()) qs.set("q", search.trim());
-    qs.set("sort", "unvalidated_first");
+    // Tri chronologique : année récente d'abord, normale avant compl., PC ensemble
+    qs.set("sort", "chronological");
     try {
       const r = await fetch(`/api/admin/exercices?${qs.toString()}`, { cache: "no-store" });
       if (r.ok) {
@@ -94,7 +98,7 @@ export function ExercicesEditor() {
     } finally {
       setLoadingList(false);
     }
-  }, [matiere, onlyUnvalidated, search]);
+  }, [matiere, filiere, onlyUnvalidated, search]);
 
   const reloadStats = useCallback(async () => {
     try {
@@ -118,6 +122,7 @@ export function ExercicesEditor() {
             `/api/admin/exercices/${encodeURIComponent(selectedId)}/neighbors?` +
               new URLSearchParams({
                 ...(matiere ? { matiere } : {}),
+                ...(filiere ? { filiere } : {}),
                 ...(onlyUnvalidated ? { only_unvalidated: "true" } : {}),
               }).toString(),
             { cache: "no-store" },
@@ -137,7 +142,7 @@ export function ExercicesEditor() {
       }
     })();
     return () => { active = false; };
-  }, [selectedId, matiere, onlyUnvalidated]);
+  }, [selectedId, matiere, filiere, onlyUnvalidated]);
 
   // ── Auto-save (debounce 700 ms)
   const schedulePatch = useCallback((patch: Partial<Full>) => {
@@ -223,9 +228,19 @@ export function ExercicesEditor() {
           value={matiere}
           onChange={(e) => setMatiere(e.target.value)}
           className="rounded border border-slate-300 px-2 py-1 text-sm"
+          title="Filtrer par matière"
         >
           <option value="">Toutes matières</option>
           {MATIERES.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select
+          value={filiere}
+          onChange={(e) => setFiliere(e.target.value)}
+          className="rounded border border-slate-300 px-2 py-1 text-sm"
+          title="Filtrer par filière"
+        >
+          <option value="">Toutes filières</option>
+          {FILIERES.map((f) => <option key={f} value={f}>Série {f}</option>)}
         </select>
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
@@ -251,25 +266,38 @@ export function ExercicesEditor() {
           <div className="max-h-[75vh] overflow-y-auto">
             {list.length === 0 && !loadingList ? (
               <div className="p-6 text-center text-sm text-slate-500">Aucun exercice.</div>
-            ) : list.map((it) => (
-              <button
-                key={it.id}
-                onClick={() => setSelectedId(it.id)}
-                className={`block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                  selectedId === it.id ? "bg-indigo-50 ring-1 ring-indigo-300" : ""
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`rounded px-1.5 py-0.5 text-xs ${matiereBadge[it.matiere_id] ?? "bg-slate-100"}`}>
-                    {it.matiere_id}
-                  </span>
-                  <span className="font-mono text-xs text-slate-500">{it.annee} · {it.session?.[0] ?? "?"}</span>
-                  {it.validated_by_admin && <span className="text-emerald-600">✓</span>}
+            ) : list.map((it, idx) => {
+              const prev = list[idx - 1];
+              const showHeader =
+                !prev || prev.annee !== it.annee || prev.session !== it.session;
+              return (
+                <div key={it.id}>
+                  {showHeader && (
+                    <div className="sticky top-0 z-10 bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-y border-slate-200">
+                      {it.annee} · {it.session}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setSelectedId(it.id)}
+                    className={`block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                      selectedId === it.id ? "bg-indigo-50 ring-1 ring-indigo-300" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded px-1.5 py-0.5 text-xs ${matiereBadge[it.matiere_id] ?? "bg-slate-100"}`}>
+                        {it.matiere_id}
+                      </span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600">
+                        {it.filiere_id}
+                      </span>
+                      {it.validated_by_admin && <span className="text-emerald-600 text-xs">✓</span>}
+                    </div>
+                    <div className="mt-0.5 truncate font-medium text-slate-900">{it.chapitre || "(sans chapitre)"}</div>
+                    <div className="truncate text-xs text-slate-500">{it.ennonce_preview}…</div>
+                  </button>
                 </div>
-                <div className="mt-0.5 truncate font-medium text-slate-900">{it.chapitre || "(sans chapitre)"}</div>
-                <div className="truncate text-xs text-slate-500">{it.ennonce_preview}…</div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 

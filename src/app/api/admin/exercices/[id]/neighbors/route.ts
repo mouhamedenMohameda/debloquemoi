@@ -20,6 +20,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       await getNeighbors(id, {
         only_unvalidated: searchParams.get("only_unvalidated") === "true",
         matiere: searchParams.get("matiere") || undefined,
+        filiere: searchParams.get("filiere") || undefined,
       }),
     );
   } catch (e) {

@@ -95,15 +95,17 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function listExercises(params: {
   matiere?: string;
+  filiere?: string;
   annee?: number;
   validated?: boolean;
   q?: string;
-  sort?: "unvalidated_first" | "id";
+  sort?: "chronological" | "unvalidated_first" | "id";
   limit?: number;
   offset?: number;
 }): Promise<{ total: number; items: ExerciceListItem[]; limit: number; offset: number }> {
   const qs = new URLSearchParams();
   if (params.matiere) qs.set("matiere", params.matiere);
+  if (params.filiere) qs.set("filiere", params.filiere);
   if (params.annee) qs.set("annee", String(params.annee));
   if (params.validated !== undefined) qs.set("validated", String(params.validated));
   if (params.q) qs.set("q", params.q);
@@ -129,11 +131,12 @@ export async function patchExercise(
 
 export async function getNeighbors(
   id: string,
-  opts: { only_unvalidated?: boolean; matiere?: string } = {},
+  opts: { only_unvalidated?: boolean; matiere?: string; filiere?: string } = {},
 ): Promise<ExerciceNeighbors> {
   const qs = new URLSearchParams();
   if (opts.only_unvalidated) qs.set("only_unvalidated", "true");
   if (opts.matiere) qs.set("matiere", opts.matiere);
+  if (opts.filiere) qs.set("filiere", opts.filiere);
   return call(`/admin/exercises/${encodeURIComponent(id)}/neighbors?${qs.toString()}`);
 }
 

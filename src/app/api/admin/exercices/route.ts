@@ -17,13 +17,18 @@ export async function GET(req: NextRequest) {
   try {
     const data = await listExercises({
       matiere: searchParams.get("matiere") || undefined,
+      filiere: searchParams.get("filiere") || undefined,
       annee: searchParams.get("annee") ? Number(searchParams.get("annee")) : undefined,
       validated:
         searchParams.get("validated") === null
           ? undefined
           : searchParams.get("validated") === "true",
       q: searchParams.get("q") || undefined,
-      sort: (searchParams.get("sort") as "unvalidated_first" | "id") || undefined,
+      sort:
+        (searchParams.get("sort") as
+          | "chronological"
+          | "unvalidated_first"
+          | "id") || undefined,
       limit: searchParams.get("limit") ? Number(searchParams.get("limit")) : 50,
       offset: searchParams.get("offset") ? Number(searchParams.get("offset")) : 0,
     });
