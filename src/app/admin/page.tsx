@@ -4,8 +4,10 @@ import Link from "next/link";
 import {
   AuthApiError,
   adminListTopups,
+  adminStats,
   me,
   type AdminTopupRequest,
+  type AdminStats,
 } from "@/lib/auth-api";
 import { getJwt } from "@/lib/session";
 import { TopupRow } from "./TopupRow";
@@ -59,9 +61,17 @@ export default async function AdminPage({
 
   let rows: AdminTopupRequest[] = [];
   let error: string | null = null;
+  let stats: AdminStats | null = null;
   try {
-    const r = await adminListTopups(jwt, currentTab);
+    const [r, statsRes] = await Promise.all([
+      adminListTopups(jwt, currentTab),
+      adminStats(jwt, "debloquemoi").catch((e) => {
+        console.error("[adminStats error]", e);
+        return null;
+      }),
+    ]);
     rows = r.requests;
+    stats = statsRes;
   } catch (e) {
     error = e instanceof AuthApiError ? e.message : "Erreur de chargement.";
   }
@@ -80,6 +90,41 @@ export default async function AdminPage({
       <p className="mt-1 text-sm text-slate-600">
         Valide ou rejette les demandes de top-up en attente.
       </p>
+
+      {/* ── Cartes métriques financières ─────────────────────────────── */}
+      {stats && (
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* Carte 1 : Ce que les users ont payé */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">💳 Recharges users</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums text-slate-900">
+              {stats.total_topups_mru.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="ml-1 text-sm font-semibold text-slate-400">MRU</span>
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400">Total déposé par les utilisateurs</p>
+          </div>
+
+          {/* Carte 2 : Ce que j'ai payé aux modèles (coût API estimé) */}
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-600">🤖 Coût API (estimé)</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums text-orange-700">
+              {stats.estimated_provider_cost_mru.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="ml-1 text-sm font-semibold text-orange-400">MRU</span>
+            </p>
+            <p className="mt-1 text-[10px] text-orange-400">Facturé ÷ marge ×{stats.margin_multiplier.toFixed(2)}</p>
+          </div>
+
+          {/* Carte 3 : Ce que j'ai gagné */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">💰 Bénéfice net (estimé)</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums text-emerald-700">
+              {stats.estimated_profit_mru.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="ml-1 text-sm font-semibold text-emerald-400">MRU</span>
+            </p>
+            <p className="mt-1 text-[10px] text-emerald-500">Facturé − coût API = {stats.total_billed_mru.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MRU facturés</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <nav className="mt-5 flex gap-1.5 overflow-x-auto pb-1">

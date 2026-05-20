@@ -61,7 +61,10 @@ export default async function AdminUsersPage({
   try {
     const [usersRes, statsRes] = await Promise.all([
       adminListUsers(jwt, { q, limit: PAGE_SIZE, offset }),
-      adminStats(jwt, "debloquemoi").catch(() => null),
+      adminStats(jwt, "debloquemoi").catch((e) => {
+        console.error("[adminStats error]", e);
+        return null;
+      }),
     ]);
     users = usersRes.users;
     total = usersRes.total;
