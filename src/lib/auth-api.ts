@@ -390,4 +390,28 @@ export async function adminGrantWallet(
   return jsonOrThrow(res);
 }
 
+export type AdminStats = {
+  app_id: string;
+  /** Total des recharges approuvées (ce que les users ont payé en MRU). */
+  total_topups_mru: number;
+  /** Total facturé aux users pour l'IA — débits wallet (en MRU). */
+  total_billed_mru: number;
+  /** Estimation du coût fournisseur = total_billed / margin (en MRU). */
+  estimated_provider_cost_mru: number;
+  /** Bénéfice estimé = total_billed - estimated_provider_cost (en MRU). */
+  estimated_profit_mru: number;
+  margin_multiplier: number;
+};
+
+export async function adminStats(
+  jwt: string,
+  appId: string = "debloquemoi",
+): Promise<AdminStats> {
+  const res = await fetch(
+    `${BASE}/api/admin/stats?app_id=${encodeURIComponent(appId)}`,
+    { headers: authHeaders(jwt), cache: "no-store" },
+  );
+  return jsonOrThrow<AdminStats>(res);
+}
+
 export { AuthApiError };

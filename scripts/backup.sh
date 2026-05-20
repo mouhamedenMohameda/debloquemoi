@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Snapshot SQLite + .env.local de Débloque-moi. Idempotent, safe-to-rerun.
+# Snapshot de la DB SQLite de auth-api + .env.local de Débloque-moi.
 #
-# - Utilise `sqlite3 .backup` (online-safe : marche pendant que le serveur
-#   écrit, contrairement à un simple cp qui peut corrompre un WAL en cours).
+# La base de données du système (users, wallet, crédits) est gérée par
+# auth-api et se trouve dans /opt/auth-api/data/auth-api.db.
+# Ce script en fait un backup atomique (sqlite3 .backup) avant chaque deploy.
+#
 # - Conserve les 30 derniers backups (auto-rotation).
-# - Code de sortie non-zéro si la DB est introuvable ou si l'intégrité KO.
+# - Code de sortie non-zéro si la DB est introuvable ou si l'intégrité KO,
+#   ce qui bloque le deploy (set -euo pipefail dans deploy.sh).
 #
 # Usage :
 #   bash /opt/debloquemoi/scripts/backup.sh
@@ -12,7 +15,8 @@
 
 set -euo pipefail
 
-DB="${DEBLOQUEMOI_DB:-/opt/debloquemoi/data/debloquemoi.db}"
+# La DB est celle de auth-api (même serveur, partagée entre les deux services)
+DB="${DEBLOQUEMOI_DB:-/opt/auth-api/data/auth-api.db}"
 BACKUP_DIR="${DEBLOQUEMOI_BACKUP_DIR:-/opt/debloquemoi/.backups}"
 ENV_FILE="${DEBLOQUEMOI_ENV:-/opt/debloquemoi/.env.local}"
 KEEP="${DEBLOQUEMOI_BACKUPS_KEEP:-30}"
