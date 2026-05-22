@@ -101,6 +101,9 @@ export function CoursEditor() {
   const [saving, setSaving] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // UI : cacher la liste de notions pour passer en pleine largeur
+  const [sidebarHidden, setSidebarHidden] = useState(false);
+
   // ─── Fetch liste notions ────────────────────────────────────────────────
   const fetchList = useCallback(async () => {
     setLoadingList(true);
@@ -318,9 +321,17 @@ export function CoursEditor() {
           <span className="text-xs text-slate-500">{total} notions affichées</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[400px_1fr]">
+        <div
+          className={`grid grid-cols-1 gap-4 ${
+            sidebarHidden ? "" : "lg:grid-cols-[400px_1fr]"
+          }`}
+        >
           {/* Liste */}
-          <aside className="max-h-[80vh] overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <aside
+            className={`max-h-[80vh] overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm ${
+              sidebarHidden ? "hidden" : ""
+            }`}
+          >
             {loadingList ? (
               <div className="p-4 text-sm text-slate-500">Chargement…</div>
             ) : list.length === 0 ? (
@@ -434,6 +445,17 @@ export function CoursEditor() {
                         {editMode ? "Aperçu" : "Éditer"}
                       </button>
                       <button
+                        onClick={() => setSidebarHidden((v) => !v)}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                        title={
+                          sidebarHidden
+                            ? "Réafficher la liste des notions"
+                            : "Cacher la liste pour agrandir le viewer"
+                        }
+                      >
+                        {sidebarHidden ? "← Liste" : "Plein écran →"}
+                      </button>
+                      <button
                         onClick={() => handleGenerate(true)}
                         disabled={generating}
                         className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
@@ -469,15 +491,15 @@ export function CoursEditor() {
                         <textarea
                           value={draftContent}
                           onChange={(e) => setDraftContent(e.target.value)}
-                          className="min-h-[70vh] w-full rounded border border-slate-300 p-3 font-mono text-xs leading-relaxed"
+                          className="min-h-[80vh] w-full rounded border border-slate-300 p-3 font-mono text-sm leading-relaxed"
                           spellCheck={false}
                         />
-                        <div className="prose-math max-h-[70vh] overflow-y-auto rounded border border-slate-200 p-4">
+                        <div className="prose-math max-h-[80vh] overflow-y-auto rounded border border-slate-200 p-5 text-[15px] leading-relaxed">
                           <MathText text={draftContent} />
                         </div>
                       </div>
                     ) : (
-                      <div className="prose-math max-h-[75vh] overflow-y-auto rounded border border-slate-100 p-4">
+                      <div className="prose-math max-h-[82vh] overflow-y-auto rounded border border-slate-100 p-6 text-[15px] leading-relaxed">
                         <MathText text={detail.course.content} />
                       </div>
                     )}
