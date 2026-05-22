@@ -80,12 +80,26 @@ export default async function AdminPage({
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-extrabold text-slate-900">🛡️ Admin — recharges</h1>
-        <Link
-          href="/admin/users"
-          className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
-        >
-          Utilisateurs →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/exercices"
+            className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
+          >
+            Exercices →
+          </Link>
+          <Link
+            href="/admin/cours"
+            className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
+          >
+            Cours →
+          </Link>
+          <Link
+            href="/admin/users"
+            className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
+          >
+            Utilisateurs →
+          </Link>
+        </div>
       </div>
       <p className="mt-1 text-sm text-slate-600">
         Valide ou rejette les demandes de top-up en attente.

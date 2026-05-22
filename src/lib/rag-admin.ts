@@ -171,4 +171,113 @@ export async function getAdminStats(): Promise<AdminStats> {
   return call(`/admin/stats`);
 }
 
+// ─── Cours (admin_courses.py) ────────────────────────────────────────────────
+
+export type NotionListItem = {
+  notion_id: string;
+  label: string;
+  matiere_id: string;
+  chapitre: string | null;
+  nb_exos: number;
+  filieres: string[];
+  has_course: boolean;
+  course_generated_at: string | null;
+  course_edited_at: string | null;
+  course_validated: boolean;
+};
+
+export type NotionListResponse = {
+  items: NotionListItem[];
+  total: number;
+  offset: number;
+  limit: number;
+  stats: {
+    total_notions: number;
+    with_course: number;
+    without_course: number;
+  };
+};
+
+export type CourseEntry = {
+  content: string;
+  model: string;
+  generated_at: string;
+  edited_at: string | null;
+  validated_by_admin: boolean;
+  notion_label: string;
+  context_exo_ids: string[];
+};
+
+export type CourseExoRef = {
+  id: string;
+  annee: number;
+  session: string;
+  filiere_id: string;
+  matiere_id: string;
+  exercice_numero: string | number;
+  ennonce_preview: string;
+};
+
+export type CourseDetail = {
+  notion_id: string;
+  label: string;
+  matiere_id: string;
+  chapitre: string | null;
+  exos: CourseExoRef[];
+  course: CourseEntry | null;
+};
+
+export async function listNotions(params: {
+  matiere?: string;
+  filiere?: string;
+  min_exos?: number;
+  has_course?: boolean;
+  q?: string;
+  sort?: "nb_exos_desc" | "nb_exos_asc" | "label" | "notion_id";
+  limit?: number;
+  offset?: number;
+} = {}): Promise<NotionListResponse> {
+  const qs = new URLSearchParams();
+  if (params.matiere) qs.set("matiere", params.matiere);
+  if (params.filiere) qs.set("filiere", params.filiere);
+  if (params.min_exos !== undefined) qs.set("min_exos", String(params.min_exos));
+  if (params.has_course !== undefined) qs.set("has_course", String(params.has_course));
+  if (params.q) qs.set("q", params.q);
+  if (params.sort) qs.set("sort", params.sort);
+  if (params.limit) qs.set("limit", String(params.limit));
+  if (params.offset) qs.set("offset", String(params.offset));
+  return call(`/admin/courses/notions?${qs.toString()}`);
+}
+
+export async function getCourseDetail(notion_id: string): Promise<CourseDetail> {
+  return call(`/admin/courses/${encodeURIComponent(notion_id)}`);
+}
+
+export async function generateCourse(
+  notion_id: string,
+  opts: { force?: boolean; max_context_exos?: number } = {},
+): Promise<{ notion_id: string; label: string; course: CourseEntry }> {
+  return call(`/admin/courses/${encodeURIComponent(notion_id)}/generate`, {
+    method: "POST",
+    body: JSON.stringify({
+      force: opts.force ?? false,
+      max_context_exos: opts.max_context_exos ?? 5,
+    }),
+  });
+}
+
+export async function patchCourse(
+  notion_id: string,
+  body: { content?: string; validated_by_admin?: boolean },
+): Promise<{ notion_id: string; course: CourseEntry }> {
+  return call(`/admin/courses/${encodeURIComponent(notion_id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteCourse(notion_id: string): Promise<{ ok: boolean }> {
+  return call(`/admin/courses/${encodeURIComponent(notion_id)}`, { method: "DELETE" });
+}
+
 export { RagAdminError };
