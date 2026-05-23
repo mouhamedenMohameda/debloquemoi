@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MathText } from "@/components/MathText";
 
 type ListItem = {
   id: string;
@@ -265,6 +266,10 @@ export function ExercicesEditor() {
 
   const [showAddDialog, setShowAddDialog] = useState(false);
 
+  // Mode d'affichage des champs énoncé/correction
+  type PreviewMode = "code" | "split" | "preview";
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("split");
+
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
@@ -435,19 +440,44 @@ export function ExercicesEditor() {
                     {current.annee} · {current.session} · {current.filiere_id} ({current.filiere})
                   </div>
                 </div>
-                <div className="text-right text-xs">
-                  {saving ? (
-                    <span className="text-amber-600">💾 Sauvegarde…</span>
-                  ) : savedAt ? (
-                    <span className="text-emerald-600">✓ Sauvegardé</span>
-                  ) : (
-                    <span className="text-slate-400">—</span>
-                  )}
-                  {neighbors?.position && (
-                    <div className="text-slate-400">
-                      {neighbors.position} / {neighbors.total}
-                    </div>
-                  )}
+                <div className="flex flex-col items-end gap-2 text-xs">
+                  <div>
+                    {saving ? (
+                      <span className="text-amber-600">💾 Sauvegarde…</span>
+                    ) : savedAt ? (
+                      <span className="text-emerald-600">✓ Sauvegardé</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                    {neighbors?.position && (
+                      <span className="ml-2 text-slate-400">
+                        {neighbors.position} / {neighbors.total}
+                      </span>
+                    )}
+                  </div>
+                  {/* Toggle vue : code / split / preview */}
+                  <div className="inline-flex overflow-hidden rounded-full border border-slate-300 text-[11px] font-medium">
+                    {(["code", "split", "preview"] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setPreviewMode(m)}
+                        className={`px-2.5 py-1 transition ${
+                          previewMode === m
+                            ? "bg-indigo-600 text-white"
+                            : "bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                        title={
+                          m === "code"
+                            ? "Édition seule (texte brut)"
+                            : m === "split"
+                              ? "Côte à côte (édition + aperçu)"
+                              : "Aperçu seul (rendu LaTeX)"
+                        }
+                      >
+                        {m === "code" ? "Code" : m === "split" ? "Code ⇆ Aperçu" : "Aperçu"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -469,36 +499,22 @@ export function ExercicesEditor() {
               />
 
               {/* Énoncé */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Énoncé complet
-                  <span className="ml-2 font-normal text-slate-400">
-                    {(draft.ennonce_complet ?? "").length} caractères
-                  </span>
-                </label>
-                <textarea
-                  value={draft.ennonce_complet ?? ""}
-                  onChange={(e) => updateDraft({ ennonce_complet: e.target.value })}
-                  className="mt-1 h-56 w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed"
-                  placeholder="Colle ou corrige l'énoncé ici. Tu peux écrire avec des $...$ pour le LaTeX."
-                />
-              </div>
+              <MathTextField
+                label="Énoncé complet"
+                value={draft.ennonce_complet ?? ""}
+                onChange={(v) => updateDraft({ ennonce_complet: v })}
+                placeholder="Colle ou corrige l'énoncé ici. Tu peux écrire avec des $...$ pour le LaTeX."
+                mode={previewMode}
+              />
 
               {/* Correction */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Correction (solution rédigée)
-                  <span className="ml-2 font-normal text-slate-400">
-                    {(draft.correction ?? "").length} caractères
-                  </span>
-                </label>
-                <textarea
-                  value={draft.correction ?? ""}
-                  onChange={(e) => updateDraft({ correction: e.target.value })}
-                  className="mt-1 h-56 w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed"
-                  placeholder="Colle la correction officielle (style IPN). LaTeX OK avec $...$ et $$...$$."
-                />
-              </div>
+              <MathTextField
+                label="Correction (solution rédigée)"
+                value={draft.correction ?? ""}
+                onChange={(v) => updateDraft({ correction: v })}
+                placeholder="Colle la correction officielle (style IPN). LaTeX OK avec $...$ et $$...$$."
+                mode={previewMode}
+              />
 
               {/* Validé + nav + suppression */}
               <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
@@ -625,6 +641,68 @@ function AddExerciseDialog({
             {submitting ? "Création…" : "Créer"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Champ texte avec aperçu LaTeX live ──────────────────────────────────────
+// Synchronisé avec le draft (auto-save debounce du parent).
+// Mode "code" : textarea seule (pleine largeur).
+// Mode "split" : textarea + aperçu côte à côte (chacun 50%).
+// Mode "preview" : aperçu seul (pleine largeur), lecture seule.
+
+function MathTextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  mode,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  mode: "code" | "split" | "preview";
+}) {
+  const charCount = value.length;
+  const showCode = mode === "code" || mode === "split";
+  const showPreview = mode === "preview" || mode === "split";
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+        <span className="ml-2 font-normal text-slate-400">{charCount} caractères</span>
+      </label>
+      <div
+        className={`mt-1 grid gap-3 ${
+          mode === "split" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+        }`}
+      >
+        {showCode && (
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-56 w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed"
+            placeholder={placeholder}
+            spellCheck={false}
+          />
+        )}
+        {showPreview && (
+          <div
+            className="h-56 overflow-y-auto rounded border border-slate-200 bg-slate-50/60 px-4 py-2"
+            aria-label={`Aperçu LaTeX : ${label}`}
+          >
+            {value.trim() ? (
+              <MathText text={value} />
+            ) : (
+              <div className="py-8 text-center text-xs italic text-slate-400">
+                Aperçu vide — commence à écrire à gauche.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
