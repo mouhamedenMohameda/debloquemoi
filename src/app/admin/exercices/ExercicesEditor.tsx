@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MathText } from "@/components/MathText";
+import { LatexSnippetToolbar } from "@/components/LatexSnippetToolbar";
 
 type ListItem = {
   id: string;
@@ -668,6 +669,7 @@ function MathTextField({
   const charCount = value.length;
   const showCode = mode === "code" || mode === "split";
   const showPreview = mode === "preview" || mode === "split";
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <div>
@@ -675,34 +677,44 @@ function MathTextField({
         {label}
         <span className="ml-2 font-normal text-slate-400">{charCount} caractères</span>
       </label>
-      <div
-        className={`mt-1 grid gap-3 ${
-          mode === "split" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
-        }`}
-      >
+      <div className="mt-1">
         {showCode && (
-          <textarea
+          <LatexSnippetToolbar
+            textareaRef={textareaRef}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-56 w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed"
-            placeholder={placeholder}
-            spellCheck={false}
+            onChange={onChange}
           />
         )}
-        {showPreview && (
-          <div
-            className="h-56 overflow-y-auto rounded border border-slate-200 bg-slate-50/60 px-4 py-2"
-            aria-label={`Aperçu LaTeX : ${label}`}
-          >
-            {value.trim() ? (
-              <MathText text={value} />
-            ) : (
-              <div className="py-8 text-center text-xs italic text-slate-400">
-                Aperçu vide — commence à écrire à gauche.
-              </div>
-            )}
-          </div>
-        )}
+        <div
+          className={`grid gap-3 ${
+            mode === "split" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+          }`}
+        >
+          {showCode && (
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="h-56 w-full rounded-b border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed"
+              placeholder={placeholder}
+              spellCheck={false}
+            />
+          )}
+          {showPreview && (
+            <div
+              className="h-56 overflow-y-auto rounded border border-slate-200 bg-slate-50/60 px-4 py-2"
+              aria-label={`Aperçu LaTeX : ${label}`}
+            >
+              {value.trim() ? (
+                <MathText text={value} />
+              ) : (
+                <div className="py-8 text-center text-xs italic text-slate-400">
+                  Aperçu vide — commence à écrire à gauche.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
