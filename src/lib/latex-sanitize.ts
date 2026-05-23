@@ -179,18 +179,75 @@ const TYPO_FIXES: Array<[RegExp, string]> = [
 ];
 
 // === Macros KaTeX (passées à rehype-katex) ===
-// Couvre les raccourcis pédagogiques courants.
+// Bibliothèque pour le Bac mauritanien (math, physique, chimie, SVT).
+// Les conventions suivent les programmes officiels IPN 2026.
 export const KATEX_MACROS = {
+  // ── Ensembles de nombres ────────────────────────────────────────────────
   "\\R": "\\mathbb{R}",
   "\\N": "\\mathbb{N}",
   "\\Z": "\\mathbb{Z}",
   "\\Q": "\\mathbb{Q}",
   "\\C": "\\mathbb{C}",
+  "\\Rstar": "\\mathbb{R}^{*}",
+  "\\Nstar": "\\mathbb{N}^{*}",
+  "\\Zstar": "\\mathbb{Z}^{*}",
+  "\\Rplus": "\\mathbb{R}^{+}",
+  "\\Rminus": "\\mathbb{R}^{-}",
+  "\\Rpstar": "\\mathbb{R}_{+}^{*}",
+
+  // ── Raccourcis logique / quantificateurs ────────────────────────────────
   "\\eps": "\\varepsilon",
   "\\implies": "\\Longrightarrow",
   "\\iff": "\\Longleftrightarrow",
-  // Vecteurs
+  "\\then": "\\Longrightarrow",
+
+  // ── Vecteurs (notation française : flèche par-dessus) ───────────────────
   "\\vv": "\\overrightarrow",
+  "\\vu": "\\vec{u}",
+  "\\vi": "\\vec{i}",
+  "\\vj": "\\vec{j}",
+  "\\vk": "\\vec{k}",
+  "\\vO": "\\vec{O}",
+  // Norme d'un vecteur : \norme{u} → ||u||
+  "\\norme": "\\left\\|#1\\right\\|",
+  // Valeur absolue : \abs{x} → |x|
+  "\\abs": "\\left|#1\\right|",
+
+  // ── Analyse ─────────────────────────────────────────────────────────────
+  "\\dx": "\\,\\mathrm{d}x",
+  "\\dt": "\\,\\mathrm{d}t",
+  "\\dy": "\\,\\mathrm{d}y",
+  "\\du": "\\,\\mathrm{d}u",
+  "\\dv": "\\,\\mathrm{d}v",
+  // Dérivées partielles
+  "\\df": "\\dfrac",
+
+  // ── Physique : unités SI courantes (texte droit, espace fine) ──────────
+  // Usage : 9{,}81\,\unite{m.s^{-2}}
+  "\\unite": "\\,\\mathrm{#1}",
+  "\\degC": "{}^{\\circ}\\mathrm{C}",
+  "\\degree": "{}^{\\circ}",
+  "\\Ohm": "\\Omega",
+  "\\micro": "\\mu",
+
+  // ── Chimie (en complément de mhchem qui fournit \ce et \pu) ────────────
+  // pH, pKa lisibles
+  "\\pH": "\\mathrm{pH}",
+  "\\pKa": "\\mathrm{p}K_{\\mathrm{a}}",
+  "\\pOH": "\\mathrm{pOH}",
+  "\\Ka": "K_{\\mathrm{a}}",
+  "\\Kb": "K_{\\mathrm{b}}",
+  "\\Ke": "K_{\\mathrm{e}}",
+  // Concentration : \conc{H3O+} → [H3O+]
+  "\\conc": "\\left[\\ce{#1}\\right]",
+
+  // ── SVT (notation génétique simplifiée) ─────────────────────────────────
+  // Allèles : \allele{A}{a} → (A, a)
+  "\\allele": "(#1, #2)",
+  // Génotype : \geno{A}{a} → [A/a]
+  "\\geno": "\\left[#1/#2\\right]",
+  // Croisement : \croise{P1}{P2} → P1 × P2
+  "\\croise": "#1 \\times #2",
 } as const;
 
 /**
