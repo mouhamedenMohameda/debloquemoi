@@ -15,6 +15,7 @@ import Link from "next/link";
 import { AuthApiError, creditsMe, walletInfo } from "@/lib/auth-api";
 import { getJwt, getSession } from "@/lib/session";
 import { getTranslationsServer } from "@/lib/i18n";
+import { whatsappContactUrl } from "@/lib/contact";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { LogoutButton } from "@/components/LogoutButton";
 
@@ -185,6 +186,18 @@ export async function Header() {
                 <span className="hidden sm:inline">{t.nav.gratuits}</span>
               </Link>
             )}
+
+            {/* Contact support WhatsApp */}
+            <a
+              href={whatsappContactUrl(t.common.contactWhatsappMsg)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t.common.contactUs}
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition hover:bg-emerald-700"
+            >
+              <span aria-hidden>💬</span>
+              <span className="hidden sm:inline">{t.common.contactUs}</span>
+            </a>
 
             {/* Sélecteur de langue */}
             <LanguageSwitcher />

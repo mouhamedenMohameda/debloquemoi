@@ -4,6 +4,7 @@ import { AuthApiError, creditsMe, myTopupRequests, type TopupRequest } from "@/l
 import { getJwt } from "@/lib/session";
 import { TopupForm } from "./TopupForm";
 import { getTranslationsServer } from "@/lib/i18n";
+import { whatsappContactUrl } from "@/lib/contact";
 
 export async function generateMetadata() {
   const { t } = await getTranslationsServer();
@@ -102,6 +103,20 @@ export default async function TopupPage() {
             <span>{t.topup.howToStep3}</span>
           </li>
         </ol>
+      </section>
+
+      {/* Contact support WhatsApp */}
+      <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-base font-bold text-emerald-900">{t.topup.contactTitle}</h2>
+        <a
+          href={whatsappContactUrl(t.topup.contactWhatsappMsg)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.97]"
+        >
+          <span aria-hidden>💬</span>
+          <span>{t.topup.contactBtn}</span>
+        </a>
       </section>
 
       {/* Form */}

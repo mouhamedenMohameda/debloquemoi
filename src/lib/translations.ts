@@ -28,6 +28,8 @@ export const translations = {
       copied: "Copié !",
       back: "Retour",
       mru: "MRU",
+      contactUs: "Contactez-nous",
+      contactWhatsappMsg: "Bonjour, j'ai une question sur Débloque-moi.",
     },
     home: {
       heroTitle: "Bloqué sur un exercice ?",
@@ -105,6 +107,9 @@ export const translations = {
       uploadBtnSending: "Envoi en cours...",
       uploadSuccess: "Reçu ! Demande #{id} créée. Un admin va la traiter sous peu.",
       uploadError: "Impossible de créer la demande :",
+      contactTitle: "Un souci avec ta recharge ?",
+      contactBtn: "Contacter le support sur WhatsApp",
+      contactWhatsappMsg: "Bonjour, j'ai besoin d'aide pour recharger mon portefeuille Débloque-moi.",
     },
     referrals: {
       title: "🎁 Parrainage",
@@ -263,6 +268,8 @@ export const translations = {
       copied: "تم النسخ !",
       back: "رجوع",
       mru: "أوقية",
+      contactUs: "اتصل بنا",
+      contactWhatsappMsg: "مرحباً، لدي سؤال حول تطبيق Débloque-moi.",
     },
     home: {
       heroTitle: "هل أنت عالق في تمرين ؟",
@@ -340,6 +347,9 @@ export const translations = {
       uploadBtnSending: "جاري الإرسال...",
       uploadSuccess: "تم الاستلام ! تم إنشاء الطلب #{id}. سيقوم المشرف بمعالجته قريباً.",
       uploadError: "تعذر إنشاء الطلب :",
+      contactTitle: "هل لديك مشكلة في الشحن ؟",
+      contactBtn: "تواصل مع الدعم عبر واتساب",
+      contactWhatsappMsg: "مرحباً، أحتاج مساعدة في شحن رصيد محفظتي في تطبيق Débloque-moi.",
     },
     referrals: {
       title: "🎁 نظام الإحالة والترشيح",
