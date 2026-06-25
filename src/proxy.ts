@@ -35,8 +35,21 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
+function extractToken(req: NextRequest): string | null {
+  // Mobile : Authorization: Bearer <jwt>. Vérification stricte de la signature
+  // déléguée à auth-api dans le route handler ; ici on ne fait qu'un check
+  // d'expiration léger pour autoriser le passage du middleware.
+  const auth = req.headers.get("authorization");
+  if (auth && /^Bearer\s+/i.test(auth)) {
+    const t = auth.replace(/^Bearer\s+/i, "").trim();
+    if (t) return t;
+  }
+  // Web : cookie httpOnly.
+  return req.cookies.get(COOKIE_NAME)?.value ?? null;
+}
+
 function hasValidSession(req: NextRequest): boolean {
-  const tok = req.cookies.get(COOKIE_NAME)?.value;
+  const tok = extractToken(req);
   if (!tok) return false;
   try {
     const p = decodeJwt(tok);
