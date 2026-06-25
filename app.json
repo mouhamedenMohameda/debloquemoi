@@ -1,25 +1,53 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Débloque-moi",
+    "slug": "debloquemoi",
+    "scheme": "debloquemoi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.debloquemoi.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Photographier un exercice à corriger.",
+        "NSPhotoLibraryUsageDescription": "Choisir une photo d'exercice depuis tes albums."
+      }
     },
     "android": {
+      "package": "com.debloquemoi.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.CAMERA"]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autoriser Débloque-moi à utiliser la caméra pour photographier tes exercices."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autoriser Débloque-moi à accéder à tes photos pour choisir un exercice."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
