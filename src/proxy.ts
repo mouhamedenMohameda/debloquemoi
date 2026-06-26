@@ -22,10 +22,12 @@ const PUBLIC_PATHS = new Set<string>([
   "/forgot-password",
 ]);
 
-// Préfixes publics (assets, internals Next, etc.)
+// Préfixes publics (assets, internals Next, API routes, etc.).
+// Les API routes gèrent elles-mêmes leur auth via les handlers et la session
+// (Bearer mobile ou cookie web) ; on ne les redirige pas vers /login.
 const PUBLIC_PREFIXES = [
   "/_next",
-  "/api/health",
+  "/api",
   "/favicon",
   "/static",
 ];
