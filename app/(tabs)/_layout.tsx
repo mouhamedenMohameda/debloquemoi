@@ -1,9 +1,13 @@
 import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, Text, View } from "react-native";
 import { useSession } from "@/lib/useSession";
+import { useTranslation } from "@/lib/i18n";
 
 export default function TabsLayout() {
   const { user, loading } = useSession();
+  const { t, locale } = useTranslation();
+  const historyLabel = locale === "ar" ? "السجل" : "Historique";
+  const bankLabel = locale === "ar" ? "الأرشيف" : "Banque";
 
   if (loading) {
     return (
@@ -29,35 +33,35 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Accueil",
+          title: t.nav.home,
           tabBarIcon: ({ color }) => <Icon emoji="🧠" color={color} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: "Historique",
+          title: historyLabel,
           tabBarIcon: ({ color }) => <Icon emoji="🕘" color={color} />,
         }}
       />
       <Tabs.Screen
         name="exercises"
         options={{
-          title: "Banque",
+          title: bankLabel,
           tabBarIcon: ({ color }) => <Icon emoji="📚" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profil",
+          title: t.nav.profile,
           tabBarIcon: ({ color }) => <Icon emoji="👤" color={color} />,
         }}
       />
       <Tabs.Screen
         name="topup"
         options={{
-          title: "Recharge",
+          title: t.nav.topup,
           tabBarIcon: ({ color }) => <Icon emoji="💳" color={color} />,
         }}
       />

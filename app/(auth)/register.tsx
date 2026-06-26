@@ -13,10 +13,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/useSession";
+import { useTranslation } from "@/lib/i18n";
 
 export default function Register() {
   const router = useRouter();
   const { register } = useSession();
+  const { t, locale } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nni, setNni] = useState("");
@@ -32,15 +34,23 @@ export default function Register() {
     const n = nni.trim();
     const w = whatsapp.trim();
     if (!e || !password || !n || !w) {
-      setError("Tous les champs sont requis.");
+      setError(
+        locale === "ar"
+          ? "جميع الحقول مطلوبة."
+          : "Tous les champs sont requis.",
+      );
       return;
     }
     if (!e.includes("@") || !e.includes(".")) {
-      setError("Email invalide (ex: tu@exemple.com).");
+      setError(
+        locale === "ar"
+          ? "بريد إلكتروني غير صالح (مثال: tu@exemple.com)."
+          : "Email invalide (ex: tu@exemple.com).",
+      );
       return;
     }
     if (password.length < 8) {
-      setError("Mot de passe : 8 caractères minimum.");
+      setError(t.auth.passwordMinLength);
       return;
     }
     setPending(true);
@@ -54,7 +64,11 @@ export default function Register() {
       });
       router.replace("/(tabs)/home");
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Erreur d'inscription. Réessaye.";
+      const msg = err instanceof ApiError
+        ? err.message
+        : (locale === "ar"
+            ? "فشل التسجيل. حاول مرة أخرى."
+            : "Erreur d'inscription. Réessaye.");
       setError(msg);
     } finally {
       setPending(false);
@@ -72,14 +86,14 @@ export default function Register() {
           keyboardShouldPersistTaps="handled"
         >
           <Text className="text-3xl font-bold text-slate-900 mb-2">
-            Créer un compte
+            {t.auth.registerTitle}
           </Text>
           <Text className="text-base text-slate-500 mb-8">
-            10 indices gratuits offerts à l'inscription.
+            {t.auth.registerPromo}
           </Text>
 
           <Field
-            label="Email"
+            label={t.auth.fieldEmail}
             value={email}
             onChangeText={setEmail}
             placeholder="tu@exemple.com"
@@ -88,7 +102,7 @@ export default function Register() {
             textContentType="emailAddress"
           />
           <Field
-            label="Mot de passe (8 caractères min.)"
+            label={`${t.auth.fieldPassword} (8+)`}
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
@@ -96,24 +110,24 @@ export default function Register() {
             textContentType="newPassword"
           />
           <Field
-            label="NNI"
+            label={t.auth.fieldNni}
             value={nni}
             onChangeText={setNni}
-            placeholder="Numéro national d'identification"
+            placeholder={t.auth.fieldNniPlaceholder}
             keyboardType="number-pad"
           />
           <Field
-            label="WhatsApp"
+            label={t.auth.fieldWhatsapp}
             value={whatsapp}
             onChangeText={setWhatsapp}
-            placeholder="+222 ..."
+            placeholder={t.auth.fieldWhatsappPlaceholder}
             keyboardType="phone-pad"
           />
           <Field
-            label="Code de parrainage (optionnel)"
+            label={`${t.auth.fieldReferralCode} (${locale === "ar" ? "اختياري" : "optionnel"})`}
             value={referralCode}
             onChangeText={setReferralCode}
-            placeholder="ABC123"
+            placeholder={t.auth.fieldReferralCodePlaceholder}
             autoCapitalize="characters"
           />
 
@@ -132,17 +146,17 @@ export default function Register() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white font-semibold text-base">
-                Créer mon compte
+                {t.auth.btnRegister}
               </Text>
             )}
           </Pressable>
 
           <View className="flex-row justify-center items-center">
-            <Text className="text-slate-600 text-sm">Déjà un compte ?</Text>
+            <Text className="text-slate-600 text-sm">{t.auth.hasAccount}</Text>
             <Link href="/(auth)/login" asChild>
               <Pressable hitSlop={8} className="ml-1">
                 <Text className="text-brand text-sm font-medium">
-                  Se connecter
+                  {t.auth.loginLink}
                 </Text>
               </Pressable>
             </Link>

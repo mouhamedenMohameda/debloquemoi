@@ -13,26 +13,34 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "@/lib/api";
 import { useSession } from "@/lib/useSession";
+import { useTranslation } from "@/lib/i18n";
 
 export default function Login() {
   const router = useRouter();
   const { login } = useSession();
+  const { t, locale } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  // Reproduit `<input type="email" required minLength=8>` du web : on bloque
-  // la soumission AVANT d'appeler le backend (cf. LoginForm.tsx du Next.js).
   async function onSubmit() {
     setError(null);
     const e = email.trim();
     if (!e || !password) {
-      setError("Email et mot de passe requis.");
+      setError(
+        locale === "ar"
+          ? "البريد الإلكتروني وكلمة المرور مطلوبان."
+          : "Email et mot de passe requis.",
+      );
       return;
     }
     if (!e.includes("@") || !e.includes(".")) {
-      setError("Email invalide (ex: tu@exemple.com).");
+      setError(
+        locale === "ar"
+          ? "بريد إلكتروني غير صالح (مثال: tu@exemple.com)."
+          : "Email invalide (ex: tu@exemple.com).",
+      );
       return;
     }
     setPending(true);
@@ -40,7 +48,12 @@ export default function Login() {
       await login({ email: e.toLowerCase(), password });
       router.replace("/(tabs)/home");
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Erreur de connexion. Réessaye.";
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : locale === "ar"
+            ? "فشل الاتصال. حاول مرة أخرى."
+            : "Erreur de connexion. Réessaye.";
       setError(msg);
     } finally {
       setPending(false);
@@ -61,10 +74,12 @@ export default function Login() {
             Débloque-moi
           </Text>
           <Text className="text-base text-slate-500 mb-8">
-            Connecte-toi pour reprendre tes exercices.
+            {t.auth.loginSubtitle}
           </Text>
 
-          <Text className="text-sm font-medium text-slate-700 mb-1">Email</Text>
+          <Text className="text-sm font-medium text-slate-700 mb-1">
+            {t.auth.fieldEmail}
+          </Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -78,7 +93,7 @@ export default function Login() {
           />
 
           <Text className="text-sm font-medium text-slate-700 mb-1">
-            Mot de passe
+            {t.auth.fieldPassword}
           </Text>
           <TextInput
             value={password}
@@ -105,7 +120,7 @@ export default function Login() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white font-semibold text-base">
-                Se connecter
+                {pending ? t.auth.btnConnecting : t.auth.btnConnect}
               </Text>
             )}
           </Pressable>
@@ -114,18 +129,20 @@ export default function Login() {
             <Link href="/(auth)/forgot-password" asChild>
               <Pressable hitSlop={8}>
                 <Text className="text-slate-500 text-sm underline">
-                  Mot de passe oublié ?
+                  {locale === "ar"
+                    ? "نسيت كلمة المرور؟"
+                    : "Mot de passe oublié ?"}
                 </Text>
               </Pressable>
             </Link>
           </View>
 
           <View className="flex-row justify-center items-center">
-            <Text className="text-slate-600 text-sm">Pas encore de compte ?</Text>
+            <Text className="text-slate-600 text-sm">{t.auth.noAccount}</Text>
             <Link href="/(auth)/register" asChild>
               <Pressable hitSlop={8} className="ml-1">
                 <Text className="text-brand text-sm font-medium">
-                  Créer un compte
+                  {t.auth.registerLink}
                 </Text>
               </Pressable>
             </Link>
