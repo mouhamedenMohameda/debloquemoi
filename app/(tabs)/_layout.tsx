@@ -7,7 +7,7 @@ export default function TabsLayout() {
   const { user, loading } = useSession();
   const { t, locale } = useTranslation();
   const historyLabel = locale === "ar" ? "السجل" : "Historique";
-  const bankLabel = locale === "ar" ? "الأرشيف" : "Banque";
+  const annalesLabel = locale === "ar" ? "حولياتي" : "Annales";
 
   if (loading) {
     return (
@@ -45,12 +45,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="exercises"
+        name="annales"
         options={{
-          title: bankLabel,
-          tabBarIcon: ({ color }) => <Icon emoji="📚" color={color} />,
+          title: annalesLabel,
+          tabBarIcon: ({ color }) => <Icon emoji="📸" color={color} />,
         }}
       />
+      {/* Banque d'exercices : accessible depuis « Mes annales » (max 5 tabs iOS). */}
+      <Tabs.Screen name="exercises" options={{ href: null }} />
       <Tabs.Screen
         name="profile"
         options={{

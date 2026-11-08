@@ -15,6 +15,7 @@ export type SessionUser = {
   referral_code?: string;
   free_hints_remaining?: number;
   free_hints_expires_at?: string | null;
+  bac_filiere?: "C" | "D" | null;
 };
 
 type LoginPayload = { email: string; password: string };
