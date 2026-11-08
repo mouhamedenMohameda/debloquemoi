@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "groq-sdk": "^1.2.0",
     "jose": "^6.2.3",
     "katex": "^0.16.47",

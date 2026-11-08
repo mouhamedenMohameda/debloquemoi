@@ -20,6 +20,7 @@ import { bestExamRef, formatChunksForPrompt, ragSearch } from "@/lib/rag";
 import { validateCitations } from "@/lib/citations";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getSession } from "@/lib/session";
+import { newtonValidateExercise } from "@/lib/newton";
 
 export const runtime = "nodejs";
 
@@ -183,6 +184,19 @@ export async function POST(req: NextRequest) {
   const trimmedCorrection = correction?.trim();
   const isExplainMode = !!trimmedCorrection && trimmedCorrection.length >= 3;
 
+  // ─── 4b. Newton — validation expression math (best-effort) ───────────
+  // Pour les exercices de maths, on tente de simplifier une expression LaTeX
+  // extraite de l'énoncé. Le résultat est concaténé au contexte RAG pour
+  // ancrer les calculs de Groq. Entièrement non-bloquant.
+  let ragContextFinal = ragContext;
+  if (subject.id === "math" && !isExplainMode) {
+    const newtonCheck = await newtonValidateExercise(exercise);
+    if (newtonCheck.valid && newtonCheck.expression && newtonCheck.result) {
+      ragContextFinal +=
+        `\n\n[Calcul Newton vérifié] simplify(${newtonCheck.expression}) = ${newtonCheck.result}`;
+    }
+  }
+
   let content: string;
   let usage;
   let finishReason: string | undefined;
@@ -191,7 +205,7 @@ export async function POST(req: NextRequest) {
       ? [
           {
             role: "system" as const,
-            content: buildExplainSystemPrompt(subject, chapter, ragContext, lowConfidence),
+            content: buildExplainSystemPrompt(subject, chapter, ragContextFinal, lowConfidence),
           },
           {
             role: "user" as const,
@@ -205,7 +219,7 @@ export async function POST(req: NextRequest) {
       : [
           {
             role: "system" as const,
-            content: buildSystemPrompt(subject, chapter, ragContext, lowConfidence),
+            content: buildSystemPrompt(subject, chapter, ragContextFinal, lowConfidence),
           },
           {
             role: "user" as const,

@@ -35,13 +35,13 @@ export function LogoutButton() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop avec flou */}
           <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            className="backdrop-show absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Fenêtre de dialogue (Card Modal) */}
           <div
-            className="relative w-full max-w-sm transform overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 text-center shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200"
+            className="modal-show relative w-full max-w-sm overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 text-center shadow-2xl"
             role="dialog"
             aria-modal="true"
           >
@@ -61,7 +61,7 @@ export function LogoutButton() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-98 cursor-pointer"
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition-[background-color,transform] duration-150 ease-out hover:bg-slate-50 active:scale-[0.97] cursor-pointer"
               >
                 {t.common.cancel}
               </button>
@@ -69,7 +69,7 @@ export function LogoutButton() {
               <form action={logoutAction} className="flex-1">
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-red-700 active:scale-98 cursor-pointer shadow-sm"
+                  className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-xs font-semibold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-red-700 active:scale-[0.97] cursor-pointer shadow-sm"
                 >
                   {t.nav.logout}
                 </button>

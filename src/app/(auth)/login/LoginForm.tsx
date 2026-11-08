@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { loginAction } from "../actions";
 import { useTranslation } from "@/components/LanguageProvider";
 
@@ -72,6 +73,15 @@ export function LoginForm() {
       >
         {pending ? t.auth.btnConnecting : t.auth.btnConnect}
       </button>
+
+      <p className="text-center text-sm">
+        <Link
+          href="/forgot-password"
+          className="font-medium text-indigo-600 hover:text-indigo-700"
+        >
+          {t.auth.forgotLink}
+        </Link>
+      </p>
     </form>
   );
 }

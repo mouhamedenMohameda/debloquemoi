@@ -3,6 +3,11 @@
 :root {
   --background: #f7f8fc;
   --foreground: #0f172a;
+
+  /* Custom easing curves — stronger than CSS defaults */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @theme inline {
@@ -33,17 +38,17 @@ body {
   }
 }
 .animate-in {
-  animation: slide-up-fade 0.35s ease-out both;
+  animation: slide-up-fade 240ms var(--ease-out) both;
 }
 
 /* Spinner */
-@keyframes spin-slow {
+@keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 .spinner {
-  animation: spin-slow 0.8s linear infinite;
+  animation: spin 700ms linear infinite;
 }
 
 /* Pulse pour le drop-zone actif */
@@ -59,7 +64,93 @@ body {
   }
 }
 .dropzone-active {
-  animation: pulse-ring 1.4s ease-out infinite;
+  animation: pulse-ring 1.4s var(--ease-out) infinite;
+}
+
+/* Landing: hero stagger entry */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 640ms var(--ease-out) both;
+}
+
+/* Landing: scroll-reveal target (toggled by IntersectionObserver) */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Modal entry — stays centered (modals are exempt from origin-aware scaling) */
+@keyframes modal-show {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.modal-show {
+  animation: modal-show 200ms var(--ease-out) both;
+  transform-origin: center;
+}
+
+@keyframes backdrop-show {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.backdrop-show {
+  animation: backdrop-show 200ms var(--ease-out) both;
+}
+
+/* prefers-reduced-motion — keep fades, drop movement & infinite loops.
+   Per Emil: reduced motion ≠ zero motion; opacity changes aid comprehension. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .modal-show,
+  .fade-up {
+    animation-duration: 150ms;
+    animation-timing-function: ease;
+  }
+  .animate-in,
+  .modal-show,
+  .fade-up {
+    /* Keep fade, drop translate/scale */
+    animation-name: backdrop-show;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .spinner,
+  .dropzone-active {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import {
   AuthApiError,
   login as apiLogin,
   register as apiRegister,
+  resetPassword as apiResetPassword,
 } from "@/lib/auth-api";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session";
 
@@ -55,6 +56,33 @@ export async function registerAction(formData: FormData): Promise<ActionResult> 
     return { ok: false, error: "Erreur d'inscription. Réessaye." };
   }
   redirect("/");
+}
+
+export async function resetPasswordAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const email = String(formData.get("email") ?? "").trim();
+  const nni = String(formData.get("nni") ?? "").trim();
+  const whatsapp = String(formData.get("whatsapp") ?? "").trim();
+  const new_password = String(formData.get("new_password") ?? "");
+
+  if (!email || !nni || !whatsapp || !new_password) {
+    return { ok: false, error: "Tous les champs sont requis." };
+  }
+  if (new_password.length < 8) {
+    return { ok: false, error: "Mot de passe : 8 caractères minimum." };
+  }
+  try {
+    await apiResetPassword({ email, nni, whatsapp, new_password });
+  } catch (e) {
+    if (e instanceof AuthApiError) {
+      return { ok: false, error: e.message };
+    }
+    return { ok: false, error: "Réinitialisation échouée. Réessaye." };
+  }
+  // Succès : pas de redirect — le formulaire affiche un état de réussite avec
+  // un lien vers la connexion.
+  return { ok: true };
 }
 
 export async function logoutAction() {

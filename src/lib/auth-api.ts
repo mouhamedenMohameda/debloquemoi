@@ -168,6 +168,26 @@ export async function login(input: {
   return jsonOrThrow<LoginResult>(res);
 }
 
+/**
+ * Réinitialise le mot de passe « par connaissance » : si email + NNI + WhatsApp
+ * correspondent au compte enregistré, on définit le nouveau mot de passe.
+ * Endpoint public (pas de clé S2S), comme login/register.
+ */
+export async function resetPassword(input: {
+  email: string;
+  nni: string;
+  whatsapp: string;
+  new_password: string;
+}): Promise<{ message: string }> {
+  const res = await fetch(`${BASE}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  return jsonOrThrow<{ message: string }>(res);
+}
+
 /** Récupère le profil + portefeuille du user à partir de son JWT. */
 export async function me(jwt: string): Promise<{ authenticated: true; user: AuthUser }> {
   const res = await fetch(`${BASE}/api/auth/me`, {
