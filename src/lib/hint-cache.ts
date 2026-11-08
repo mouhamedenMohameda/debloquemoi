@@ -10,15 +10,17 @@
  *   - la matière, le chapitre, la source de vérité (vérifiée / IA) et le
  *     modèle — une correction nouvellement validée invalide donc le cache.
  *
- * Stockage : un fichier JSON par clé dans HINT_CACHE_DIR (défaut
- * `<cwd>/.cache/hints`), écriture atomique. Best-effort : toute erreur de
- * cache est ignorée et l'on retombe sur l'appel IA normal.
+ * Stockage : rag-service (/cache/hints/{clé}), dont le dossier de données est
+ * déjà accessible en écriture et partagé par le web et le mobile. Best-effort :
+ * toute erreur de cache est ignorée (journalisée) et l'on retombe sur l'appel
+ * IA normal — le cache ne bloque jamais un élève.
  */
+import "server-only";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 
-const TTL_MS = 180 * 24 * 3600 * 1000; // 6 mois
+const BASE = process.env.RAG_SERVICE_URL ?? "http://127.0.0.1:8001";
+const S2S_KEY = process.env.RAG_S2S_KEY ?? "";
+const TIMEOUT_MS = 2500;
 
 export type HintCacheKeyInput = {
   exerciseId: string | null;
@@ -40,12 +42,8 @@ export type CachedHint = {
   content: string;
   model: string;
   created_at: string;
-  usage_total: number;
+  hits: number;
 };
-
-function cacheDir(): string {
-  return process.env.HINT_CACHE_DIR || path.join(process.cwd(), ".cache", "hints");
-}
 
 /** Normalise un texte pour que les variations sans importance (espaces, casse) partagent la clé. */
 export function normalizeText(s: string | undefined | null): string {
@@ -54,6 +52,15 @@ export function normalizeText(s: string | undefined | null): string {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Retire le bandeau de vérité (citation « > … » en tête) d'un indice précédent :
+ *  il dépend du profil de l'élève (série, langue), pas de la réponse de l'IA. */
+export function stripBanner(h: string): string {
+  const lines = (h ?? "").split("\n");
+  let i = 0;
+  while (i < lines.length && (lines[i].startsWith(">") || (i > 0 && lines[i].trim() === "" && lines[i - 1].startsWith(">")))) i++;
+  return i > 0 ? lines.slice(i).join("\n") : h;
 }
 
 export function hintCacheKey(k: HintCacheKeyInput): string {
@@ -68,7 +75,7 @@ export function hintCacheKey(k: HintCacheKeyInput): string {
     mode: k.mode,
     focus: normalizeText(k.focusQuestion),
     all: !!k.treatAll,
-    prev: (k.previousHints ?? []).map(normalizeText),
+    prev: (k.previousHints ?? []).map((h) => normalizeText(stripBanner(h))),
     corr: normalizeText(k.correction),
     src: k.source,
     verified: k.hasVerifiedCorrection,
@@ -77,29 +84,42 @@ export function hintCacheKey(k: HintCacheKeyInput): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
-function fileFor(key: string): string {
-  return path.join(cacheDir(), key.slice(0, 2), `${key}.json`);
+async function call(method: "GET" | "PUT", key: string, body?: unknown): Promise<Response | null> {
+  if (!S2S_KEY) return null;
+  try {
+    return await fetch(`${BASE}/cache/hints/${key}`, {
+      method,
+      headers: { "X-Api-Key": S2S_KEY, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (e) {
+    console.error("[hint-cache] rag-service injoignable", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 export async function getCachedHint(key: string): Promise<CachedHint | null> {
+  const r = await call("GET", key);
+  if (!r) return null;
+  if (r.status === 404) return null;
+  if (!r.ok) {
+    console.error("[hint-cache] lecture", r.status);
+    return null;
+  }
   try {
-    const raw = await readFile(fileFor(key), "utf8");
-    const c = JSON.parse(raw) as CachedHint;
-    if (!c.content || Date.now() - Date.parse(c.created_at) > TTL_MS) return null;
-    return c;
+    const c = (await r.json()) as CachedHint;
+    return c.content ? c : null;
   } catch {
     return null;
   }
 }
 
-export async function putCachedHint(key: string, value: Omit<CachedHint, "created_at">): Promise<void> {
-  try {
-    const file = fileFor(key);
-    await mkdir(path.dirname(file), { recursive: true });
-    const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tmp, JSON.stringify({ ...value, created_at: new Date().toISOString() }), "utf8");
-    await rename(tmp, file);
-  } catch (e) {
-    console.error("[hint-cache] écriture impossible", e);
-  }
+export async function putCachedHint(
+  key: string,
+  value: { content: string; model: string; usage_total: number },
+): Promise<void> {
+  const r = await call("PUT", key, value);
+  if (r && !r.ok) console.error("[hint-cache] écriture", r.status, await r.text().catch(() => ""));
 }

@@ -22,6 +22,8 @@ type Hint = {
   usage?: Usage;
   mode?: AppMode;
   similarExam?: string | null;
+  /** Réponse servie depuis le cache : aucun appel IA, rien n'a été débité. */
+  cached?: boolean;
 };
 
 // Un "groupe" = toutes les aides demandées pour UNE question (focus) donnée.
@@ -597,6 +599,7 @@ export default function HomeClient({
           text: data.hint,
           usage: data.usage,
           similarExam: data.similar_exam ?? null,
+          cached: data.cached === true,
         };
         setGroups((prev) => {
           const idx = prev.findIndex((g) => g.focusKey === focusLabel);
@@ -666,6 +669,7 @@ export default function HomeClient({
         usage: data.usage,
         mode: mode,
         similarExam: data.similar_exam ?? null,
+        cached: data.cached === true,
       };
       setGroups((prev) => {
         const idx = prev.findIndex((g) => g.focusKey === currentKey);
@@ -1543,7 +1547,21 @@ export default function HomeClient({
                                     {title}
                                   </span>
                                 </div>
-                                {h.usage && <UsageBadge usage={h.usage} variant="light" />}
+                                {h.cached ? (
+                                  <span
+                                    data-testid="hint-cached"
+                                    title={
+                                      locale === "ar"
+                                        ? "سبق توليد هذا الجواب: لم يُستدعَ الذكاء الاصطناعي ولم يُخصم شيء."
+                                        : "Réponse déjà générée : aucun appel à l'IA, rien n'a été débité."
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-inset ring-white/40"
+                                  >
+                                    ♻️ {locale === "ar" ? "مُولَّد سابقاً — مجاني" : "Déjà générée — gratuite"}
+                                  </span>
+                                ) : (
+                                  h.usage && <UsageBadge usage={h.usage} variant="light" />
+                                )}
                               </div>
                               <div className="px-5 py-5 text-[15px] leading-relaxed text-slate-800 sm:px-6 sm:py-6 prose max-w-none">
                                 <MathText text={h.text} />
