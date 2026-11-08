@@ -82,6 +82,12 @@ export default async function AdminPage({
         <h1 className="text-2xl font-extrabold text-slate-900">🛡️ Admin — recharges</h1>
         <div className="flex items-center gap-3">
           <Link
+            href="/admin/chapitres"
+            className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
+          >
+            Chapitres →
+          </Link>
+          <Link
             href="/admin/exercices"
             className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
           >

@@ -54,6 +54,7 @@ export type ExerciceUpdate = {
   ennonce_complet?: string;
   correction?: string;
   notions_traitees?: string[];
+  notion_ids?: string[];
   chapitre?: string;
   fichier?: string;
   validated_by_admin?: boolean;
@@ -278,6 +279,152 @@ export async function patchCourse(
 
 export async function deleteCourse(notion_id: string): Promise<{ ok: boolean }> {
   return call(`/admin/courses/${encodeURIComponent(notion_id)}`, { method: "DELETE" });
+}
+
+// ─── Chapitres / publication (admin_chapters.py) ─────────────────────────────
+
+export type ChapterScope = {
+  filiere_id: string;
+  matiere_id: string;
+  chapitre: string;
+};
+
+export type ChapterChecks = {
+  exercises: number;
+  exercises_validated: number;
+  corrections_ready: number;
+  notions_curated: boolean;
+  notions: number;
+  lessons_validated: number;
+  exercises_without_chapter_notion: string[];
+  ready: boolean;
+};
+
+export type ChapterGridRow = ChapterScope & {
+  status: "draft" | "published";
+  published_at: string | null;
+  years: [number, number] | null;
+  checks: ChapterChecks;
+};
+
+export type ChapterGrid = {
+  items: ChapterGridRow[];
+  unassigned: { filiere_id: string; matiere_id: string; exercises: number }[];
+};
+
+export type ChapterNotionRow = {
+  notion_id: string;
+  label: string;
+  known: boolean;
+  exercises_in_chapter: number;
+  has_course: boolean;
+  course_validated: boolean;
+};
+
+export type ChapterExerciseRow = {
+  id: string;
+  titre?: string;
+  annee: number;
+  session: string;
+  exercice_numero: string | number;
+  notion_ids: string[];
+  has_correction: boolean;
+  validated_by_admin: boolean;
+  is_skeleton: boolean;
+  ennonce_preview: string;
+};
+
+export type ChapterDetail = ChapterScope & {
+  status: "draft" | "published";
+  published_at: string | null;
+  notions_curated: boolean;
+  notions: ChapterNotionRow[];
+  other_notions_in_exercises: ChapterNotionRow[];
+  exercises: ChapterExerciseRow[];
+  checks: ChapterChecks;
+};
+
+export type ChapterOccurrence = {
+  id: string;
+  annee: number;
+  session: string;
+  exercice_numero: string | number;
+  chapitre: string;
+  enonce: string;
+  correction: string | null;
+};
+
+export type ChapterViewNotion = {
+  notion_id: string;
+  label: string;
+  lesson: string | null;
+  years: number[];
+  occurrences: ChapterOccurrence[];
+  admin?: {
+    hidden_unvalidated_exercises: number;
+    lesson_exists: boolean;
+    lesson_hidden_unvalidated: boolean;
+  };
+};
+
+export type ChapterView = ChapterScope & {
+  status: "draft" | "published";
+  notions: ChapterViewNotion[];
+};
+
+function scopeQs(s: { filiere: string; matiere: string; chapitre: string }): string {
+  return new URLSearchParams({
+    filiere: s.filiere,
+    matiere: s.matiere,
+    chapitre: s.chapitre,
+  }).toString();
+}
+
+export async function listChapters(
+  params: { filiere?: string; matiere?: string } = {},
+): Promise<ChapterGrid> {
+  const qs = new URLSearchParams();
+  if (params.filiere) qs.set("filiere", params.filiere);
+  if (params.matiere) qs.set("matiere", params.matiere);
+  return call(`/admin/chapters?${qs.toString()}`);
+}
+
+export async function getChapterDetail(s: {
+  filiere: string;
+  matiere: string;
+  chapitre: string;
+}): Promise<ChapterDetail> {
+  return call(`/admin/chapters/detail?${scopeQs(s)}`);
+}
+
+export async function getChapterPreview(s: {
+  filiere: string;
+  matiere: string;
+  chapitre: string;
+}): Promise<ChapterView> {
+  return call(`/admin/chapters/preview?${scopeQs(s)}`);
+}
+
+export async function setChapterNotions(
+  body: ChapterScope & { notion_ids: string[] },
+): Promise<unknown> {
+  return call(`/admin/chapters/notions`, { method: "PUT", body: JSON.stringify(body) });
+}
+
+export async function publishChapter(
+  body: ChapterScope & { published: boolean },
+): Promise<unknown> {
+  return call(`/admin/chapters/publish`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function createRegistryNotion(body: {
+  matiere_id: string;
+  label: string;
+}): Promise<{ notion_id: string; created: boolean; label: string }> {
+  return call(`/admin/chapters/registry-notion`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export { RagAdminError };
