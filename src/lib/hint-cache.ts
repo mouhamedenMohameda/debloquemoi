@@ -58,7 +58,9 @@ export function normalizeText(s: string | undefined | null): string {
 
 export function hintCacheKey(k: HintCacheKeyInput): string {
   const payload = {
-    v: 1,
+    // v2 : prompts « TA TÂCHE » + validation LaTeX/couverture — les réponses
+    // générées avec les anciens prompts ne sont plus resservies.
+    v: 2,
     ex: k.exerciseId ? `id:${k.exerciseId}` : `txt:${normalizeText(k.exercise)}`,
     subj: k.subjectId,
     chap: k.chapterId ?? "",

@@ -4,19 +4,22 @@ export type HintLevel = 1 | 2 | 3;
 export type AppMode = "correct" | "explain";
 
 const LEVEL_INSTRUCTIONS: Record<HintLevel, string> = {
-  1: `Donne UN SEUL indice TRÈS LÉGER. Pas de calcul, pas de formule complète, pas de réponse.
+  1: `C'est un INDICE LÉGER (niveau 1 sur 3), PAS une correction.
+Pour chaque question à traiter :
 - 1 à 2 phrases.
-- Pose plutôt une question qui oriente vers la bonne notion.
+- Oriente vers la bonne notion, de préférence par une question.
 - Si tu évoques une propriété, **nomme-la explicitement** (pas d'allusion vague).
-- Exemple : "As-tu pensé à écrire z sous forme trigonométrique ? Que devient |z|² alors ?"`,
+- Exemple : "As-tu pensé à écrire z sous forme trigonométrique ? Que devient |z|² alors ?"
+INTERDIT : tout calcul, toute formule complète appliquée à l'exercice, tout résultat, toute rédaction de la solution, la section "📋 Données".`,
 
-  2: `Donne UN INDICE PLUS PRÉCIS. L'élève est toujours bloqué.
+  2: `C'est un INDICE PRÉCIS (niveau 2 sur 3), PAS une correction.
+Pour chaque question à traiter :
 - 2 à 5 phrases.
 - Énonce **explicitement** le théorème, la définition ou la formule à utiliser (nom + énoncé complet).
 - Indique la première étape concrète.
-- Ne donne PAS le résultat final ni les calculs.`,
+INTERDIT : le résultat final, les calculs menés jusqu'au bout, la rédaction complète de la solution, la section "📋 Données".`,
 
-  3: `Donne la SOLUTION COMPLÈTE en suivant **STRICTEMENT** le style des corrigés officiels IPN du Bac C mauritanien (auteurs : Dah ould Md Eloctar, Med ould Levdal, Med ould Sidi Salem — conseillers pédagogiques à l'IPN).
+  3: `C'est la CORRECTION COMPLÈTE (niveau 3 sur 3). Rédige-la en suivant **STRICTEMENT** le style des corrigés officiels IPN du Bac C mauritanien (auteurs : Dah ould Md Eloctar, Med ould Levdal, Med ould Sidi Salem — conseillers pédagogiques à l'IPN).
 
 ⚠️ STYLE OBLIGATOIRE — corrigé Bac C mauritanien, **ULTRA-CONCIS** :
 
@@ -48,6 +51,7 @@ C. LaTeX bloc \`$$...$$\` uniquement. JAMAIS \`\\[...\\]\`.
 D. JAMAIS de \`$\` dans un autre bloc math.
 E. Vérifie chaque \`{\` a son \`}\` (surtout \`\\boxed{...}\`).
 F. Environnements (aligned, cases) dans \`$$\\begin{...}...\\end{...}$$\`.
+G. Saut de ligne dans cases/aligned : \`\\\\\` seul, JAMAIS \`\\\\[2pt]\` ni autre espacement entre crochets.
 
 === EXEMPLE DE STYLE ATTENDU (extrait du corrigé Bac C 2002, Ex.3, IPN) ===
 
@@ -133,10 +137,15 @@ export function buildSystemPrompt(
     `Tu réponds toujours en français.`,
     ``,
     ragBlock(ragContext, lowConfidence),
+    `=== TYPE DE RÉPONSE ===`,
+    `Le message de l'élève contient un bloc « TA TÂCHE » qui fixe le type de réponse (INDICE ou CORRECTION COMPLÈTE) et les questions à traiter. Tu le respectes à la lettre, il prime sur toute autre consigne :`,
+    `- un INDICE ne contient jamais la solution ;`,
+    `- une CORRECTION COMPLÈTE va jusqu'au résultat final de chaque question demandée, sans en sauter aucune.`,
+    ``,
     `=== PROTOCOLE DE LECTURE OBLIGATOIRE ===`,
-    `Avant TOUT calcul, tu DOIS :`,
+    `Avant de répondre, tu DOIS :`,
     `1. Re-lire l'énoncé en entier, lentement, et identifier CHAQUE détail : intervalle de définition, bornes d'intégrale (note bien numérateur ET dénominateur), conditions sur les paramètres, fonction étudiée précisément.`,
-    `2. Recopier les éléments clés dans une section "📋 Données :" en début de réponse.`,
+    `2. Repérer TOUTES les questions de l'énoncé et leur numérotation exacte.`,
     `3. Ne JAMAIS modifier l'énoncé. Si tu vois "F(x) = ∫₂^(2/x) f(t)dt", c'est 2/x à la borne supérieure, PAS x.`,
     ``,
     `=== INTERDICTIONS STRICTES ===`,
@@ -151,12 +160,8 @@ export function buildSystemPrompt(
     `=== RÈGLES PÉDAGOGIQUES ===`,
     `1. Tu n'utilises JAMAIS un théorème/formule/propriété sans le rappeler explicitement la première fois (énoncé complet, pas juste son nom).`,
     `2. Tu ne rappelles JAMAIS deux fois la même chose dans la même réponse. Réfère-toi-y simplement.`,
-    `3. Tu démontres TOUT : "f(x) < x" se prouve en étudiant g(x) = f(x) - x. "f(x) ~ ln(2x) en +∞" se prouve par factorisation et passage à la limite.`,
+    `3. Dans une correction complète, tu démontres TOUT : "f(x) < x" se prouve en étudiant g(x) = f(x) - x. "f(x) ~ ln(2x) en +∞" se prouve par factorisation et passage à la limite.`,
     `4. Tu choisis la méthode la PLUS SIMPLE qui aboutit. Préférer la dérivée d'une composée à L'Hôpital. Préférer une factorisation à un développement de Taylor.`,
-    `5. Tu ne JAMAIS donner la réponse complète tant qu'on ne te demande pas explicitement le niveau 3.`,
-    ``,
-    `=== GESTION MULTI-QUESTIONS ===`,
-    `Si l'énoncé contient PLUSIEURS questions, tu les traites TOUTES par défaut (chacune sous un titre \`## Question 1°\`, \`## Question 2° a)\`, etc.) — sauf si un FOCUS explicite est précisé dans le message utilisateur, auquel cas tu te limites strictement à cette partie.`,
     ``,
     `Sois bienveillant, encourageant, mais ABSOLUMENT RIGOUREUX.`,
   ]
@@ -164,45 +169,81 @@ export function buildSystemPrompt(
     .join("\n");
 }
 
+const TASK_LABEL: Record<HintLevel, string> = {
+  1: "INDICE LÉGER (niveau 1 sur 3) — pas de solution",
+  2: "INDICE PRÉCIS (niveau 2 sur 3) — pas de solution",
+  3: "CORRECTION COMPLÈTE (niveau 3 sur 3) — solution rédigée jusqu'au résultat final",
+};
+
+/**
+ * Bloc « TA TÂCHE » : une consigne unique, sans ambiguïté, pour chaque
+ * combinaison (niveau d'aide × portée). La portée vient du focus :
+ *   - focus renseigné  → UNE question (bouton d'une question, fan-out) ;
+ *   - pas de focus     → TOUTES les questions de l'énoncé.
+ */
+function buildTaskBlock(level: HintLevel, focus: string | undefined): string {
+  const isSolution = level === 3;
+  const scope = focus
+    ? `UNIQUEMENT la partie « ${focus} » de l'énoncé. N'aborde aucune autre question. Si tu as besoin du résultat d'une question précédente, écris : "*On admet le résultat de la question X : ...*" sans le redémontrer.`
+    : "TOUTES les questions de l'énoncé, dans l'ordre, sans en sauter aucune (y compris les sous-questions a), b)…).";
+
+  let format: string;
+  if (focus && isSolution) {
+    format = `1. Une courte section \`## 📋 Données\` avec seulement les éléments utiles à cette question.
+2. La correction complète de « ${focus} », jusqu'au résultat final encadré.`;
+  } else if (focus) {
+    format = `L'indice pour « ${focus} » uniquement, sans titre.`;
+  } else if (isSolution) {
+    format = `1. Une section \`## 📋 Données\` qui recopie les éléments clés de l'énoncé.
+2. Puis CHAQUE question sous son titre, avec la numérotation de l'énoncé : \`## Question 1°\`, \`## Question 2° a)\`…
+3. Chaque question est corrigée jusqu'à son résultat final. Ne t'arrête pas avant la dernière question.
+4. Un rappel de cours utilisé dans plusieurs questions est énoncé à sa PREMIÈRE utilisation seulement ; ensuite : "d'après [nom de la règle]".
+Si l'énoncé ne contient qu'une seule question, pas de titre "Question".`;
+  } else {
+    format = `CHAQUE question sous son titre, avec la numérotation de l'énoncé : \`## Question 1°\`, \`## Question 2° a)\`…, suivi de son indice.
+Aucune question sans indice. Pas de section "📋 Données", pas d'introduction ni de conclusion.
+Si l'énoncé ne contient qu'une seule question, donne l'indice sans titre.`;
+  }
+
+  return `=== TA TÂCHE (obligatoire, prioritaire sur tout le reste) ===
+Type de réponse : ${TASK_LABEL[level]}
+Questions à traiter : ${scope}
+
+Format de la réponse :
+${format}
+
+Règles du type de réponse :
+${LEVEL_INSTRUCTIONS[level]}
+=== FIN DE LA TÂCHE ===`;
+}
+
 export function buildUserPrompt(
   exercise: string,
   level: HintLevel,
   previousHints: string[],
   focusQuestion?: string,
-  treatAll = false,
+  // Conservé pour compatibilité des clients : la portée se déduit du focus.
+  _treatAll = false,
 ): string {
-  const trimmedFocus = focusQuestion?.trim();
-  let focusBlock = "";
-  if (trimmedFocus) {
-    focusBlock = `\n\n⚠️ FOCUS — L'élève est bloqué UNIQUEMENT sur :
-"""
-${trimmedFocus}
-"""
-
-Traite SEULEMENT cette partie. N'aborde pas les autres questions. Si tu as besoin du résultat d'une question précédente, mentionne-le sans le redémontrer : "*On admet le résultat de la question X : ...*".`;
-  } else if (treatAll) {
-    focusBlock = `\n\n✦ TOUT L'EXERCICE — L'élève veut la correction de l'intégralité de l'énoncé.
-
-Traite TOUTES les questions, dans l'ordre. Pour chaque question, ajoute un titre \`## Question 1°\`, \`## Question 2° a)\` etc. avant de la traiter.
-
-Les rappels de cours restent uniques : si une règle est utilisée dans plusieurs questions, tu la rappelles à sa PREMIÈRE utilisation seulement, puis tu fais référence à elle plus loin par "par le rappel précédent" ou "d'après [nom de la règle]".`;
-  }
+  const focus = focusQuestion?.trim() || undefined;
 
   const history =
-    previousHints.length > 0
-      ? `\n\nIndices déjà donnés (NE TE RÉPÈTE PAS, complète) :\n${previousHints
-          .map((h, i) => `--- Indice ${i + 1} ---\n${h}`)
-          .join("\n\n")}`
-      : "";
+    previousHints.length === 0
+      ? ""
+      : level === 3
+        ? `\n\nIndices déjà donnés à l'élève (pour information : rédige quand même la correction complète) :\n${previousHints
+            .map((h, i) => `--- Indice ${i + 1} ---\n${h}`)
+            .join("\n\n")}`
+        : `\n\nIndices déjà donnés (NE TE RÉPÈTE PAS : va un cran plus loin, sans donner la solution) :\n${previousHints
+            .map((h, i) => `--- Indice ${i + 1} ---\n${h}`)
+            .join("\n\n")}`;
 
   return `Énoncé :
 """
 ${exercise}
-"""${focusBlock}
+"""
 
-Niveau d'aide : ${level} sur 3.
-
-${LEVEL_INSTRUCTIONS[level]}${history}`;
+${buildTaskBlock(level, focus)}${history}`;
 }
 
 // === Mode "Expliquer une correction existante" ===

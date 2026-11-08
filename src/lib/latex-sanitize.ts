@@ -258,13 +258,24 @@ export function sanitizeLatex(input: string): string {
   if (!input) return input;
   let out = input;
 
+  // --- Couche 0 : sauts de ligne avec espacement `\\[2pt]` ---
+  // `\\[2pt]` (fréquent dans cases/aligned) contient `\[`, que la couche 1
+  // prendrait pour l'ouverture d'un bloc display : tout l'exercice se décalait
+  // et s'affichait en rouge. KaTeX n'en a pas besoin : on garde `\\`.
+  out = out.replace(
+    /\\\\[ \t]*\[\s*-?\d*(?:[.,]\d+)?\s*(?:pt|em|ex|mm|cm|mu|bp)\s*\]/g,
+    () => "\\\\ ",
+  );
+
   // --- Couche 1 : délimiteurs LaTeX classiques → délimiteurs $ ---
   // Nettoie aussi les $...$ malformés à l'intérieur (qu'on a parfois en sortie LLM).
-  out = out.replace(/\\\[([\s\S]*?)\\\]/g, (_, body) => {
+  // (?<!\\) : un `\[` précédé d'un autre `\` est un saut de ligne `\\`
+  // suivi d'un crochet, pas un délimiteur.
+  out = out.replace(/(?<!\\)\\\[([\s\S]*?)(?<!\\)\\\]/g, (_, body) => {
     const clean = stripInnerDollars(body);
     return `\n\n$$${clean}$$\n\n`;
   });
-  out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, body) => `$${body}$`);
+  out = out.replace(/(?<!\\)\\\(([\s\S]*?)(?<!\\)\\\)/g, (_, body) => `$${body}$`);
 
   // --- Couche 2 : environnements LaTeX (\begin{aligned}...\end{aligned}) ---
   // Détecte aussi le cas "[ \begin{...}...\end{...} ]" (backslashes mangés par markdown).

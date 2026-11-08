@@ -23,6 +23,23 @@ import { getJwt, getSession } from "@/lib/session";
 import { getLocaleServer } from "@/lib/i18n";
 import { analyzeExercise, type AnalyzeResult } from "@/lib/catalog";
 import { newtonValidateExercise } from "@/lib/newton";
+import {
+  buildRepairPrompt,
+  ensureValidMath,
+  parseRepairResponse,
+  type RepairFn,
+} from "@/lib/math-validate";
+import { missingQuestions } from "@/lib/sub-questions";
+import type { Usage } from "@/lib/groq";
+
+function addUsage(a: Usage, b: Usage): Usage {
+  return {
+    prompt: a.prompt + b.prompt,
+    completion: a.completion + b.completion,
+    total: a.total + b.total,
+    model: a.model,
+  };
+}
 
 export const runtime = "nodejs";
 
@@ -190,7 +207,7 @@ export async function POST(req: NextRequest) {
   // on donne la vérité, sans appel IA et sans débit.
   if (!isExplain && level === 3 && !focusQuestion?.trim() && verifiedCorrection) {
     return NextResponse.json({
-      hint: banner + verifiedCorrection,
+      hint: banner + (await ensureValidMath(verifiedCorrection)).text,
       level,
       usage: { prompt: 0, completion: 0, total: 0, model: "verified" },
       truncated: false,
@@ -227,7 +244,7 @@ export async function POST(req: NextRequest) {
   const cached = await getCachedHint(cacheKey);
   if (cached) {
     return NextResponse.json({
-      hint: banner + cached.content,
+      hint: banner + (await ensureValidMath(cached.content)).text,
       level,
       usage: { prompt: 0, completion: 0, total: 0, model: "cache" },
       truncated: false,
@@ -349,7 +366,7 @@ export async function POST(req: NextRequest) {
   }
 
   let content: string;
-  let usage;
+  let usage: Usage;
   let finishReason: string | undefined;
   try {
     const messages = isExplainMode
@@ -388,6 +405,52 @@ export async function POST(req: NextRequest) {
     content = r.content;
     usage = r.usage;
     finishReason = r.finishReason;
+
+    // ─── 5b. Couverture : aucune question de l'énoncé ne doit être oubliée ──
+    // Sans focus, on vérifie que chaque question numérotée de l'énoncé a sa
+    // réponse ; sinon (ou si la réponse a été coupée) on demande la suite.
+    // Au plus 2 relances, facturées comme le reste.
+    if (!isExplainMode && !focusQuestion?.trim()) {
+      for (let round = 0; round < 2; round++) {
+        const missing = missingQuestions(exercise, content);
+        const cut = finishReason === "length";
+        if (!missing.length && !cut) break;
+        const ask = cut
+          ? "Ta réponse a été coupée. Continue EXACTEMENT là où tu t'es arrêté, sans rien répéter."
+          : `Tu n'as pas traité : ${missing.map((n) => `Question ${n}°`).join(", ")}. ` +
+            `Traite-les maintenant, dans le même style et au même niveau d'aide, chacune sous son titre \`## Question N°\`. ` +
+            "Ne répète rien de ce qui précède.";
+        console.warn(`[hint] relance ${round + 1} : ${cut ? "réponse coupée" : `questions manquantes ${missing.join(",")}`}`);
+        const more = await chat([
+          ...messages,
+          { role: "assistant" as const, content },
+          { role: "user" as const, content: ask },
+        ]);
+        if (!more.content.trim()) break;
+        content = `${content.trimEnd()}\n\n${more.content.trim()}`;
+        usage = addUsage(usage, more.usage);
+        finishReason = more.finishReason;
+      }
+    }
+
+    // ─── 5c. Deuxième couche LaTeX : chaque formule doit compiler ─────────
+    // Formules refusées par KaTeX → réparées par un petit appel IA (seulement
+    // les formules fautives), sinon affichées en texte neutre (jamais en rouge).
+    const repair: RepairFn = async (errs) => {
+      const fix = await chat(
+        [{ role: "user", content: buildRepairPrompt(errs) }],
+        { maxTokens: 4096 },
+      );
+      usage = addUsage(usage!, fix.usage);
+      return parseRepairResponse(fix.content, errs.length);
+    };
+    const check = await ensureValidMath(content, repair);
+    if (check.initialErrors) {
+      console.warn(
+        `[hint] LaTeX : ${check.initialErrors} formule(s) invalide(s), ${check.repaired} réparée(s), ${check.neutralized} en texte brut`,
+      );
+    }
+    content = check.text;
   } catch (err) {
     console.error("Groq error", err);
     const message = err instanceof Error ? err.message : "Erreur inconnue";
