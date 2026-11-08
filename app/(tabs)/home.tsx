@@ -41,6 +41,8 @@ type HintResponse = {
   // Le backend renvoie une string (ex. "Bac C 2023") ou null — cf. bestExamRef
   // côté web (app/src/lib/rag.ts).
   similar_exam?: string | null;
+  /** Réponse déjà générée, servie depuis le cache : aucun appel IA, rien débité. */
+  cached?: boolean;
 };
 
 type OcrResponse = { text: string; balance_mru?: number };
@@ -55,6 +57,7 @@ type ReceivedHint = {
   balance_mru?: number;
   truncated?: boolean;
   similar_exam?: string | null;
+  cached?: boolean;
   // Présent quand la correction provient du « fan-out » multi-questions.
   label?: string;
 };
@@ -264,6 +267,7 @@ export default function Home() {
         balance_mru: r.balance_mru,
         truncated: r.truncated,
         similar_exam: r.similar_exam ?? null,
+        cached: r.cached === true,
       };
       const allHints = [...hints, newHint];
       setHints(allHints);
@@ -335,6 +339,7 @@ export default function Home() {
           balance_mru: r.balance_mru,
           truncated: r.truncated,
           similar_exam: r.similar_exam ?? null,
+          cached: r.cached === true,
           label,
         });
         setHints([...collected]);
@@ -724,7 +729,11 @@ export default function Home() {
                     ? (ar ? " (مقتطع)" : " (tronqué)")
                     : ""}
                 </Text>
-                {h.free_hint_used ? (
+                {h.cached ? (
+                  <Text className="text-xs text-emerald-600">
+                    {ar ? "♻️ مُولَّد سابقاً — مجاني" : "♻️ Déjà générée — gratuite"}
+                  </Text>
+                ) : h.free_hint_used ? (
                   <Text className="text-xs text-emerald-600">
                     {ar ? "مجاني" : "gratuit"}
                   </Text>
