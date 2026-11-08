@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ApiError, api } from "@/lib/api";
 import { setPending } from "@/lib/exerciseStore";
+import { useTranslation } from "@/lib/i18n";
 
 type ListItem = {
   id: string;
@@ -35,19 +36,6 @@ type FullExercise = {
   ennonce_complet: string;
 };
 
-const MATIERE_FILTERS = [
-  { id: "", label: "Tout" },
-  { id: "math", label: "Maths" },
-  { id: "pc", label: "Physique-Chimie" },
-  { id: "svt", label: "SVT" },
-];
-
-const FILIERE_FILTERS = [
-  { id: "", label: "Toutes" },
-  { id: "C", label: "C" },
-  { id: "D", label: "D" },
-];
-
 const MATIERE_TO_SUBJECT: Record<string, string> = {
   math: "math",
   pc: "physique",
@@ -56,6 +44,22 @@ const MATIERE_TO_SUBJECT: Record<string, string> = {
 
 export default function Exercises() {
   const router = useRouter();
+  const { t, locale } = useTranslation();
+  const ar = locale === "ar";
+
+  const MATIERE_FILTERS = [
+    { id: "", label: ar ? "الكل" : "Tout" },
+    { id: "math", label: ar ? "رياضيات" : "Maths" },
+    { id: "pc", label: ar ? "فيزياء-كيمياء" : "Physique-Chimie" },
+    { id: "svt", label: ar ? "علوم الحياة" : "SVT" },
+  ];
+
+  const FILIERE_FILTERS = [
+    { id: "", label: ar ? "كل" : "Toutes" },
+    { id: "C", label: "C" },
+    { id: "D", label: "D" },
+  ];
+
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,8 +82,8 @@ export default function Exercises() {
       );
       setItems(r.items ?? []);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Erreur de chargement.";
-      Alert.alert("Erreur", msg);
+      const msg = e instanceof ApiError ? e.message : (ar ? "خطأ في التحميل." : "Erreur de chargement.");
+      Alert.alert(t.common.error, msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -103,8 +107,8 @@ export default function Exercises() {
       });
       router.push("/(tabs)/home");
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Erreur de chargement.";
-      Alert.alert("Erreur", msg);
+      const msg = e instanceof ApiError ? e.message : (ar ? "خطأ في التحميل." : "Erreur de chargement.");
+      Alert.alert(t.common.error, msg);
     } finally {
       setLoadingId(null);
     }
@@ -126,11 +130,12 @@ export default function Exercises() {
         }
       >
         <Text className="text-2xl font-bold text-slate-900 mb-1">
-          Banque d'exercices
+          {ar ? "بنك التمارين" : "Banque d'exercices"}
         </Text>
         <Text className="text-sm text-slate-500 mb-4">
-          Sujets Bac C/D 2015-2025. Touche un exercice pour le charger dans
-          l'éditeur d'indices.
+          {ar
+            ? "مواضيع باكالوريا C/D 2015-2025. اضغط على تمرين لتحميله في محرر التلميحات."
+            : "Sujets Bac C/D 2015-2025. Touche un exercice pour le charger dans l'éditeur d'indices."}
         </Text>
 
         <TextInput
@@ -139,13 +144,13 @@ export default function Exercises() {
           onSubmitEditing={fetchList}
           returnKeyType="search"
           className="border border-slate-300 rounded-xl px-4 py-3 text-base bg-white text-slate-900 mb-3"
-          placeholder="Rechercher dans les énoncés..."
+          placeholder={ar ? "البحث في النصوص..." : "Rechercher dans les énoncés..."}
           placeholderTextColor="#94a3b8"
           autoCapitalize="none"
         />
 
         <Text className="text-xs uppercase tracking-wide text-slate-500 mb-1 px-1">
-          Matière
+          {ar ? "المادة" : "Matière"}
         </Text>
         <ScrollView
           horizontal
@@ -163,7 +168,7 @@ export default function Exercises() {
         </ScrollView>
 
         <Text className="text-xs uppercase tracking-wide text-slate-500 mb-1 px-1 mt-2">
-          Filière
+          {ar ? "الشعبة" : "Filière"}
         </Text>
         <View className="flex-row gap-2 mb-2">
           {FILIERE_FILTERS.map((f) => (
@@ -177,7 +182,7 @@ export default function Exercises() {
         </View>
 
         <Text className="text-xs uppercase tracking-wide text-slate-500 mb-1 px-1 mt-2">
-          Année (optionnel)
+          {ar ? "السنة (اختياري)" : "Année (optionnel)"}
         </Text>
         <TextInput
           value={annee}
@@ -186,7 +191,7 @@ export default function Exercises() {
           keyboardType="number-pad"
           maxLength={4}
           className="border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white text-slate-900 mb-4 w-32"
-          placeholder="ex: 2023"
+          placeholder={ar ? "مثال: 2023" : "ex: 2023"}
           placeholderTextColor="#94a3b8"
         />
 
@@ -196,7 +201,9 @@ export default function Exercises() {
           </View>
         ) : items.length === 0 ? (
           <View className="bg-white border border-slate-200 rounded-xl p-5 items-center">
-            <Text className="text-sm text-slate-500">Aucun résultat.</Text>
+            <Text className="text-sm text-slate-500">
+              {ar ? "لا توجد نتائج." : "Aucun résultat."}
+            </Text>
           </View>
         ) : (
           items.map((it) => (
@@ -214,12 +221,12 @@ export default function Exercises() {
                 </Text>
                 {it.filiere_id ? (
                   <Text className="text-xs text-slate-500">
-                    · Bac {it.filiere_id}
+                    {ar ? `· بكالوريا ${it.filiere_id}` : `· Bac ${it.filiere_id}`}
                   </Text>
                 ) : null}
                 {it.exercice_numero !== undefined ? (
                   <Text className="text-xs text-slate-500">
-                    · Ex. {String(it.exercice_numero)}
+                    {ar ? `· تمرين ${it.exercice_numero}` : `· Ex. ${it.exercice_numero}`}
                   </Text>
                 ) : null}
                 {loadingId === it.id ? (

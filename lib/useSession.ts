@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { authApi, ApiError } from "./api";
+import { authApi, ApiError, onUnauthenticated } from "./api";
 import { clearToken, loadToken, saveToken } from "./auth";
 
 export type SessionUser = {
@@ -66,6 +66,17 @@ export function useSession() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Si n'importe quelle API renvoie 401 (token expiré côté serveur), api.ts
+  // efface déjà le token et nous notifie ici pour invalider l'état user.
+  // Les écrans qui dépendent de `user` (gates, redirects) basculent alors
+  // automatiquement vers /login.
+  useEffect(() => {
+    const off = onUnauthenticated(() => {
+      setUser(null);
+    });
+    return off;
+  }, []);
 
   const login = useCallback(async ({ email, password }: LoginPayload) => {
     const r = await authApi.post<AuthResponse>("/api/auth/login", {

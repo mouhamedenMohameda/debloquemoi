@@ -1,22 +1,32 @@
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 import { WebView } from "react-native-webview";
+import { sanitizeLatex, KATEX_MACROS } from "@/lib/latex-sanitize";
 
 /**
  * Rend un Markdown contenant du LaTeX ($...$ et $$...$$) dans un WebView avec
  * KaTeX (CDN). Hauteur ajustée dynamiquement via postMessage depuis la page.
  *
+ * Pipeline (aligné sur le web, cf. components/MathText.tsx) :
+ *   1. `sanitizeLatex` (RN/Hermes) : normalise les délimiteurs, équilibre les
+ *      accolades, corrige mhchem, enveloppe le LaTeX brut, etc.
+ *   2. `marked` (WebView) : Markdown → HTML.
+ *   3. KaTeX auto-render (WebView) avec `KATEX_MACROS` + extension `mhchem`
+ *      (\ce, \pu) → formules rendues.
+ *
  * Pourquoi WebView : KaTeX est la référence pour le rendu LaTeX et n'a pas
- * d'équivalent natif RN aussi propre. Les libs `react-native-math-view` ont
- * trop de cas particuliers cassants.
+ * d'équivalent natif RN aussi propre.
+ *
+ * Utilisé pour les indices ET l'aperçu de l'énoncé extrait par OCR.
  */
-export function HintViewer({ markdown }: { markdown: string }) {
-  const [height, setHeight] = useState(120);
+export function MathMarkdown({ markdown }: { markdown: string }) {
+  const [height, setHeight] = useState(80);
 
-  const html = useMemo(() => buildHtml(markdown), [markdown]);
+  // Sanitization côté RN : le résultat (déjà normalisé) est injecté dans la page.
+  const html = useMemo(() => buildHtml(sanitizeLatex(markdown ?? "")), [markdown]);
 
   return (
-    <View style={{ height, width: "100%" }} className="bg-white rounded-xl">
+    <View style={{ height, width: "100%" }}>
       <WebView
         source={{ html }}
         originWhitelist={["*"]}
@@ -35,11 +45,13 @@ export function HintViewer({ markdown }: { markdown: string }) {
 }
 
 function escapeForTemplate(s: string): string {
-  // On va injecter dans une balise <script type="text/markdown"> donc
-  // on échappe juste les </script> et les backticks de template literal
-  // côté JS (rien à faire pour markdown brut dans la balise textuelle).
+  // On injecte dans une balise <script type="text/markdown"> : on échappe juste
+  // les </script> pour ne pas fermer la balise prématurément.
   return s.replace(/<\/script/gi, "<\\/script");
 }
+
+// Macros KaTeX sérialisées une seule fois (objet constant).
+const MACROS_JSON = JSON.stringify(KATEX_MACROS);
 
 function buildHtml(markdown: string): string {
   const safe = escapeForTemplate(markdown);
@@ -100,6 +112,8 @@ function buildHtml(markdown: string): string {
   th { background: #f8fafc; font-weight: 600; }
   .katex { font-size: 1.05em; }
   .katex-display { margin: 8px 0 12px; overflow-x: auto; overflow-y: hidden; }
+  /* Expression LaTeX cassée : affichée en rouge plutôt que de planter. */
+  .katex-error { color: #dc2626; }
 </style>
 </head>
 <body>
@@ -107,6 +121,7 @@ function buildHtml(markdown: string): string {
 <script type="text/markdown" id="md">${safe}</script>
 <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/mhchem.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script>
   (function () {
@@ -126,7 +141,10 @@ function buildHtml(markdown: string): string {
           { left: '\\\\(', right: '\\\\)', display: false }
         ],
         throwOnError: false,
-        strict: 'ignore'
+        errorColor: '#dc2626',
+        strict: false,
+        trust: true,
+        macros: ${MACROS_JSON}
       });
     } catch (e) {}
 

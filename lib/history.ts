@@ -21,6 +21,11 @@ export type SessionHint = {
   free_hint_used?: boolean;
   balance_mru?: number;
   truncated?: boolean;
+  // Référence d'examen similaire renvoyée par le RAG (ex. "Bac C 2023").
+  similar_exam?: string | null;
+  // Libellé de la question pour les corrections générées en « fan-out »
+  // (une solution complète par sous-question). Absent pour un fil d'indices simple.
+  label?: string;
 };
 
 export type SavedSession = {

@@ -7,6 +7,7 @@ import { Platform } from "react-native";
  * Par défaut : prod de Bac.
  */
 const fallbackAuth = "https://api.radar-mr.com";
+const fallbackApi = "https://bac.radar-mr.com";;
 
 function resolveUrl(envKey: string, extraKey: string, fallback: string): string {
   const fromEnv = process.env[envKey]?.trim();
@@ -30,7 +31,10 @@ function getLocalApiFallback(): string {
   }
 
   if (Platform.OS === "android") return "http://10.0.2.2:3000";
-  return "http://localhost:3000";
+  if (Platform.OS === "web") return "http://localhost:3000";
+
+  // Fallback LAN address for Expo Go / physical device testing on the same Wi‑Fi.
+  return "http://192.168.100.44:3000";
 }
 
 export const AUTH_API_URL: string = resolveUrl(
@@ -42,5 +46,5 @@ export const AUTH_API_URL: string = resolveUrl(
 export const API_URL: string = resolveUrl(
   "EXPO_PUBLIC_API_URL",
   "apiUrl",
-  getLocalApiFallback(),
+  fallbackApi,
 );

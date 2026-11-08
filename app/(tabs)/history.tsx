@@ -20,10 +20,13 @@ import {
 import { setPendingSession } from "@/lib/historyStore";
 import { useSession } from "@/lib/useSession";
 import { getSubject } from "@/lib/subjects";
+import { useTranslation } from "@/lib/i18n";
 
 export default function History() {
   const router = useRouter();
   const { user } = useSession();
+  const { t, locale } = useTranslation();
+  const ar = locale === "ar";
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,12 +57,14 @@ export default function History() {
 
   function confirmDelete(s: SavedSession) {
     Alert.alert(
-      "Supprimer cette session ?",
-      "L'historique local sera effacé. L'action est irréversible.",
+      t.home.confirmDeleteSession,
+      ar
+        ? "سيتم حذف السجل المحلي. العملية لا رجعة فيها."
+        : "L'historique local sera effacé. L'action est irréversible.",
       [
-        { text: "Annuler", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "Supprimer",
+          text: t.home.toastDelete,
           style: "destructive",
           onPress: async () => {
             if (!user?.email) return;
@@ -86,10 +91,12 @@ export default function History() {
         }
       >
         <Text className="text-2xl font-bold text-slate-900 mb-1">
-          Mes sessions
+          {ar ? "جلساتي" : "Mes sessions"}
         </Text>
         <Text className="text-sm text-slate-500 mb-5">
-          Tes exercices et indices récents (stockés sur ce téléphone).
+          {ar
+            ? "تماريني وتلميحاتي الأخيرة (مخزنة على هذا الهاتف)."
+            : "Tes exercices et indices récents (stockés sur ce téléphone)."}
         </Text>
 
         {loading ? (
@@ -99,10 +106,12 @@ export default function History() {
         ) : sessions.length === 0 ? (
           <View className="bg-white border border-slate-200 rounded-xl p-5 items-center">
             <Text className="text-base text-slate-700 mb-1">
-              Aucune session pour l'instant.
+              {t.home.historyEmpty}
             </Text>
             <Text className="text-sm text-slate-500 text-center">
-              Demande un premier indice depuis l'Accueil pour commencer.
+              {ar
+                ? "اطلب تلميحاً أولاً من الصفحة الرئيسية للبدء."
+                : "Demande un premier indice depuis l'Accueil pour commencer."}
             </Text>
           </View>
         ) : (
@@ -129,6 +138,8 @@ function SessionRow({
   onPress: () => void;
   onLongPress: () => void;
 }) {
+  const { locale } = useTranslation();
+  const ar = locale === "ar";
   const subject = getSubject(session.subjectId);
   const lastHint = session.hints.at(-1);
   return (
@@ -150,7 +161,7 @@ function SessionRow({
         {session.mode === "explain" ? (
           <View className="bg-indigo-50 rounded px-2 py-0.5">
             <Text className="text-xs text-indigo-700 font-medium">
-              Explication
+              {ar ? "شرح" : "Explication"}
             </Text>
           </View>
         ) : null}
@@ -175,12 +186,15 @@ function SessionRow({
 
       <View className="flex-row items-center gap-2 mt-1">
         <Text className="text-xs text-slate-500">
-          {session.hints.length} indice
-          {session.hints.length > 1 ? "s" : ""}
+          {ar
+            ? `${session.hints.length} تلميح${session.hints.length > 1 ? "ات" : ""}`
+            : `${session.hints.length} indice${session.hints.length > 1 ? "s" : ""}`}
         </Text>
         {lastHint ? (
           <Text className="text-xs text-slate-400">
-            · dernier : niveau {lastHint.level}
+            {ar
+              ? `· الأخير: مستوى ${lastHint.level}`
+              : `· dernier : niveau ${lastHint.level}`}
           </Text>
         ) : null}
       </View>

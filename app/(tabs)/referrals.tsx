@@ -12,6 +12,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError, authApi } from "@/lib/api";
+import { useTranslation } from "@/lib/i18n";
 
 type ReferralInfo = {
   referral_code: string | null;
@@ -24,6 +25,8 @@ type ReferralInfo = {
 };
 
 export default function Referrals() {
+  const { t, locale } = useTranslation();
+  const ar = locale === "ar";
   const [info, setInfo] = useState<ReferralInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,13 +36,15 @@ export default function Referrals() {
       const r = await authApi.get<ReferralInfo>("/api/referrals/me");
       setInfo(r);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Erreur de chargement.";
-      Alert.alert("Erreur", msg);
+      const msg = e instanceof ApiError
+        ? e.message
+        : (ar ? "خطأ في التحميل." : "Erreur de chargement.");
+      Alert.alert(t.common.error, msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [ar, t]);
 
   useEffect(() => {
     void fetchInfo();
@@ -48,14 +53,20 @@ export default function Referrals() {
   async function copyCode() {
     if (!info?.referral_code) return;
     await Clipboard.setStringAsync(info.referral_code);
-    Alert.alert("Copié", `Code ${info.referral_code} copié.`);
+    Alert.alert(
+      t.common.copied,
+      ar
+        ? `تم نسخ الرمز ${info.referral_code}.`
+        : `Code ${info.referral_code} copié.`,
+    );
   }
 
   async function shareLink() {
     if (!info?.share_url && !info?.referral_code) return;
     const url = info.share_url ?? "";
     const code = info.referral_code ?? "";
-    const message = `Rejoins Débloque-moi avec mon code ${code} et reçois des indices gratuits ! ${url}`;
+    const message = t.referrals.shareMessage.replace("{code}", code) +
+      (url ? ` ${url}` : "");
     try {
       await Share.share({ message, url: url || undefined });
     } catch {
@@ -86,15 +97,15 @@ export default function Referrals() {
         }
       >
         <Text className="text-2xl font-bold text-slate-900 mb-1">
-          Parrainage
+          {t.referrals.title}
         </Text>
         <Text className="text-sm text-slate-500 mb-5">
-          Invite tes amis et gagne des MRU à chaque inscription / paiement.
+          {t.referrals.subtitle}
         </Text>
 
         <View className="bg-white border border-slate-200 rounded-xl p-5 mb-4 items-center">
           <Text className="text-xs uppercase tracking-wide text-slate-500 mb-2">
-            Ton code
+            {t.referrals.yourCode}
           </Text>
           <Text className="text-3xl font-bold text-brand mb-3 tracking-widest">
             {info?.referral_code ?? "—"}
@@ -106,7 +117,7 @@ export default function Referrals() {
               className="flex-1 bg-white border border-slate-300 rounded-xl py-3 items-center active:bg-slate-100 disabled:opacity-60"
             >
               <Text className="text-slate-700 text-sm font-medium">
-                Copier
+                {t.common.copy}
               </Text>
             </Pressable>
             <Pressable
@@ -114,34 +125,53 @@ export default function Referrals() {
               disabled={!info?.referral_code}
               className="flex-1 bg-brand rounded-xl py-3 items-center active:bg-brand-dark disabled:opacity-60"
             >
-              <Text className="text-white text-sm font-medium">Partager</Text>
+              <Text className="text-white text-sm font-medium">
+                {ar ? "مشاركة" : "Partager"}
+              </Text>
             </Pressable>
           </View>
         </View>
 
         <View className="flex-row gap-3 mb-4">
-          <Stat label="Inscrits" value={`${info?.referred_count ?? 0}`} />
           <Stat
-            label="Payants"
+            label={t.referrals.statReferredCount}
+            value={`${info?.referred_count ?? 0}`}
+          />
+          <Stat
+            label={t.referrals.statPaidCount}
             value={`${info?.paid_referred_count ?? 0}`}
           />
         </View>
 
         <View className="bg-white border border-slate-200 rounded-xl p-4">
           <Text className="text-xs uppercase tracking-wide text-slate-500 mb-3">
-            Récompenses
+            {t.referrals.howItWorksTitle}
           </Text>
           <Row
-            label="Pour chaque inscription"
+            label={
+              ar ? "لكل تسجيل" : "Pour chaque inscription"
+            }
             value={`${info?.bonus_signup_mru?.toFixed(2) ?? "0.00"} MRU`}
           />
           <Row
-            label="Quand ton filleul recharge"
-            value={`+${info?.bonus_paid_mru_referrer?.toFixed(2) ?? "0.00"} MRU pour toi`}
+            label={
+              ar
+                ? "عندما يشحن صديقك"
+                : "Quand ton filleul recharge"
+            }
+            value={t.referrals.howItWorksBonusReferrer.replace(
+              "{amount}",
+              info?.bonus_paid_mru_referrer?.toFixed(2) ?? "0.00",
+            )}
           />
           <Row
-            label="Bonus pour ton filleul"
-            value={`+${info?.bonus_paid_mru_referred?.toFixed(2) ?? "0.00"} MRU`}
+            label={
+              ar ? "مكافأة لصديقك" : "Bonus pour ton filleul"
+            }
+            value={t.referrals.howItWorksBonusReferred.replace(
+              "{amount}",
+              info?.bonus_paid_mru_referred?.toFixed(2) ?? "0.00",
+            )}
           />
         </View>
       </ScrollView>

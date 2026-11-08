@@ -13,9 +13,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError, authApi } from "@/lib/api";
+import { useTranslation } from "@/lib/i18n";
 
 export default function ForgotPassword() {
   const router = useRouter();
+  const { t, locale } = useTranslation();
+  const ar = locale === "ar";
   const [email, setEmail] = useState("");
   const [nni, setNni] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -29,15 +32,21 @@ export default function ForgotPassword() {
     const n = nni.trim();
     const w = whatsapp.trim();
     if (!e || !n || !w || !newPassword) {
-      setError("Tous les champs sont obligatoires.");
+      setError(
+        ar ? "جميع الحقول مطلوبة." : "Tous les champs sont obligatoires.",
+      );
       return;
     }
     if (!e.includes("@") || !e.includes(".")) {
-      setError("Email invalide (ex: tu@exemple.com).");
+      setError(
+        ar
+          ? "بريد إلكتروني غير صالح (مثال: tu@exemple.com)."
+          : "Email invalide (ex: tu@exemple.com).",
+      );
       return;
     }
     if (newPassword.length < 8) {
-      setError("Nouveau mot de passe : 8 caractères minimum.");
+      setError(t.auth.passwordMinLength);
       return;
     }
     setPending(true);
@@ -49,12 +58,16 @@ export default function ForgotPassword() {
         new_password: newPassword,
       });
       Alert.alert(
-        "Mot de passe mis à jour",
-        "Tu peux te connecter avec le nouveau.",
+        ar ? "تم تحديث كلمة المرور" : "Mot de passe mis à jour",
+        ar
+          ? "يمكنك تسجيل الدخول بالجديدة."
+          : "Tu peux te connecter avec le nouveau.",
         [{ text: "OK", onPress: () => router.replace("/(auth)/login") }],
       );
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Réinitialisation échouée.";
+      const msg = err instanceof ApiError
+        ? err.message
+        : (ar ? "فشلت إعادة التعيين." : "Réinitialisation échouée.");
       setError(msg);
     } finally {
       setPending(false);
@@ -72,15 +85,16 @@ export default function ForgotPassword() {
           keyboardShouldPersistTaps="handled"
         >
           <Text className="text-3xl font-bold text-slate-900 mb-2">
-            Mot de passe oublié
+            {ar ? "نسيت كلمة المرور" : "Mot de passe oublié"}
           </Text>
           <Text className="text-base text-slate-500 mb-8">
-            Saisis exactement les informations enregistrées lors de
-            l'inscription pour définir un nouveau mot de passe.
+            {ar
+              ? "أدخل بالضبط المعلومات المسجلة عند الإنشاء لتعيين كلمة مرور جديدة."
+              : "Saisis exactement les informations enregistrées lors de l'inscription pour définir un nouveau mot de passe."}
           </Text>
 
           <Field
-            label="Email"
+            label={t.auth.fieldEmail}
             value={email}
             onChangeText={setEmail}
             placeholder="tu@exemple.com"
@@ -88,21 +102,21 @@ export default function ForgotPassword() {
             autoCapitalize="none"
           />
           <Field
-            label="NNI"
+            label={t.auth.fieldNni}
             value={nni}
             onChangeText={setNni}
-            placeholder="Numéro national"
+            placeholder={t.auth.fieldNniPlaceholder}
             keyboardType="number-pad"
           />
           <Field
-            label="WhatsApp"
+            label={t.auth.fieldWhatsapp}
             value={whatsapp}
             onChangeText={setWhatsapp}
-            placeholder="+222 ..."
+            placeholder={t.auth.fieldWhatsappPlaceholder}
             keyboardType="phone-pad"
           />
           <Field
-            label="Nouveau mot de passe (8 caractères min.)"
+            label={ar ? "كلمة مرور جديدة (8 على الأقل)" : "Nouveau mot de passe (8 caractères min.)"}
             value={newPassword}
             onChangeText={setNewPassword}
             placeholder="••••••••"
@@ -124,7 +138,7 @@ export default function ForgotPassword() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white font-semibold text-base">
-                Réinitialiser
+                {ar ? "إعادة تعيين" : "Réinitialiser"}
               </Text>
             )}
           </Pressable>
@@ -133,7 +147,7 @@ export default function ForgotPassword() {
             <Link href="/(auth)/login" asChild>
               <Pressable hitSlop={8}>
                 <Text className="text-brand text-sm font-medium">
-                  Retour à la connexion
+                  {ar ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
                 </Text>
               </Pressable>
             </Link>
