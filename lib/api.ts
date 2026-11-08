@@ -1,5 +1,16 @@
 import { API_URL, AUTH_API_URL } from "./config";
 import { clearToken, loadToken } from "./auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+/** Langue choisie dans l'app (même clé que lib/i18n.tsx) : envoyée au serveur
+ *  pour que les bandeaux des indices (✅ / ⚠️) soient dans la bonne langue. */
+async function loadLocale(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem("debloquemoi_locale");
+  } catch {
+    return null;
+  }
+}
 
 export class ApiError extends Error {
   status: number;
@@ -51,6 +62,8 @@ async function request<T>(
     headers["Content-Type"] = "application/json";
   }
   if (token) headers.Authorization = `Bearer ${token}`;
+  const locale = await loadLocale();
+  if (locale) headers["X-Locale"] = locale;
 
   const url = `${base}${path}`;
   let res: Response;
