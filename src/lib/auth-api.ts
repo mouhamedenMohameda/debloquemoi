@@ -32,6 +32,8 @@ export type AuthUser = {
   credits_blocked_reason: string | null;
   can_use_paid_features: boolean;
   referral_code: string | null;
+  /** Série du bac (Débloque-moi) : "C", "D", ou null si pas encore choisie. */
+  bac_filiere?: string | null;
 };
 
 export type WalletInfo = {
@@ -435,3 +437,17 @@ export async function adminStats(
 }
 
 export { AuthApiError };
+
+/** Enregistre la série du bac (C / D) dans le profil de l'utilisateur connecté. */
+export async function updateBacFiliere(
+  jwt: string,
+  bac_filiere: "C" | "D",
+): Promise<{ ok: true; bac_filiere: string }> {
+  const res = await fetch(`${BASE}/api/auth/me/profile`, {
+    method: "PATCH",
+    headers: { ...authHeaders(jwt), "Content-Type": "application/json" },
+    body: JSON.stringify({ bac_filiere }),
+    cache: "no-store",
+  });
+  return jsonOrThrow(res);
+}

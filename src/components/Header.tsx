@@ -39,6 +39,7 @@ function formatExpiresIn(iso: string | null, locale: string): string | null {
 
 const NAV_LINKS = [
   { href: "/", label: "Accueil", icon: "🏠" },
+  { href: "/bac", label: "Mes annales", icon: "📸" },
   { href: "/topup", label: "Recharger", icon: "💰" },
   { href: "/referrals", label: "Parrainage", icon: "🎁" },
   { href: "/profile", label: "Compte", icon: "👤" },

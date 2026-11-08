@@ -83,8 +83,25 @@ function Occurrence({ o }: { o: ChapterViewData["notions"][number]["occurrences"
   );
 }
 
-export function ChapterView({ view, adminInfo = false }: { view: ChapterViewData; adminInfo?: boolean }) {
+export function ChapterView({
+  view,
+  adminInfo = false,
+  compact = false,
+}: {
+  view: ChapterViewData;
+  adminInfo?: boolean;
+  /** Replie la liste des exercices de chaque notion derrière un bouton (écran élève mobile). */
+  compact?: boolean;
+}) {
   const [openLesson, setOpenLesson] = useState<string | null>(null);
+  const [openList, setOpenList] = useState<Set<string>>(new Set());
+  const toggleList = (id: string) =>
+    setOpenList((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   return (
     <div className="space-y-4">
       {view.notions.map((n) => (
@@ -138,7 +155,17 @@ export function ChapterView({ view, adminInfo = false }: { view: ChapterViewData
             </div>
           )}
 
-          {n.occurrences.length > 0 && (
+          {n.occurrences.length > 0 && compact && (
+            <button
+              onClick={() => toggleList(n.notion_id)}
+              className="mt-3 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+            >
+              {openList.has(n.notion_id)
+                ? "Masquer les exercices"
+                : `Voir ${n.occurrences.length > 1 ? `les ${n.occurrences.length} exercices` : "l'exercice"}`}
+            </button>
+          )}
+          {n.occurrences.length > 0 && (!compact || openList.has(n.notion_id)) && (
             <div className="mt-3 space-y-2">
               {n.occurrences.map((o) => (
                 <Occurrence key={o.id} o={o} />

@@ -422,6 +422,24 @@ export default function HomeClient({
     hydratedRef.current = true;
   }, []);
 
+  // Énoncé transmis par la page « Mes annales » (/bac) : bouton « Indices pas à pas ».
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem("debloquemoi:prefill");
+      if (!raw) return;
+      window.sessionStorage.removeItem("debloquemoi:prefill");
+      const p = JSON.parse(raw) as { exercise?: string; subjectId?: string };
+      if (p.subjectId && SUBJECTS.some((s) => s.id === p.subjectId)) {
+        const s = SUBJECTS.find((x) => x.id === p.subjectId)!;
+        setSubjectId(s.id);
+        setChapterId(s.chapters[0].id);
+      }
+      if (p.exercise) setExercise(p.exercise);
+    } catch {
+      /* stockage indisponible : on ignore */
+    }
+  }, []);
+
   // Auto-save de la session courante dès qu'une réponse IA existe.
   useEffect(() => {
     if (!hydratedRef.current) return;
