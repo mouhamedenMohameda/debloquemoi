@@ -258,10 +258,13 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
         <section className="mt-6">
           {result.status === "not_published" && (
             <div className="rounded-2xl bg-amber-50 p-5 text-center ring-1 ring-amber-200">
-              <div className="text-lg font-bold text-amber-900">Pas encore disponible</div>
+              <div className="text-lg font-bold text-amber-900">Annales pas encore disponibles</div>
               <p className="mt-1 text-sm text-amber-800">
-                Cet exercice porte sur <b>{result.chapitre ?? "un chapitre"}</b>. Ce chapitre est en préparation
-                pour la série {filiere}.
+                Cet exercice porte sur <b>{result.chapitre ?? "un chapitre"}</b>. Les sujets du bac, corrections et
+                cours vérifiés de ce chapitre sont en préparation pour la série {filiere}.
+              </p>
+              <p className="mt-2 text-sm text-amber-800">
+                Tu peux quand même te faire aider par l&apos;IA : sa réponse ne sera pas vérifiée par un professeur.
               </p>
             </div>
           )}
@@ -270,7 +273,8 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
             <div className="rounded-2xl bg-slate-50 p-5 text-center ring-1 ring-slate-200">
               <div className="text-lg font-bold text-slate-900">On n&apos;a pas reconnu cet exercice</div>
               <p className="mt-1 text-sm text-slate-600">
-                Vérifie que le texte lu correspond bien à l&apos;énoncé, ou demande des indices pas à pas.
+                Il ne correspond à aucun sujet du bac vérifié. Vérifie que le texte lu correspond bien à
+                l&apos;énoncé, ou fais-toi aider par l&apos;IA (réponse non vérifiée par un professeur).
               </p>
             </div>
           )}
@@ -343,7 +347,13 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
           )}
 
           <div className="mt-6 rounded-2xl bg-indigo-50 p-4 text-center ring-1 ring-indigo-100">
-            <p className="text-sm text-indigo-900">Tu préfères chercher toi-même, avec de l&apos;aide progressive ?</p>
+            <p className="text-sm text-indigo-900">
+              {result.status === "matched" && result.exercise?.correction
+                ? "Tu préfères chercher toi-même ? Les indices s'appuient sur la correction vérifiée."
+                : result.status === "matched" || result.status === "detected"
+                  ? "Besoin d'aide pour le résoudre ? Les indices sont rédigés par l'IA (non vérifiés)."
+                  : "Aide de l'IA, étape par étape (non vérifiée par un professeur)."}
+            </p>
             <button
               onClick={goToHints}
               className="mt-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"

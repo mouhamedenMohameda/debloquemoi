@@ -17,11 +17,9 @@ import {
   walletInfo,
 } from "@/lib/auth-api";
 import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
-import { bestExamRef, formatChunksForPrompt, ragSearch } from "@/lib/rag";
-import { validateCitations } from "@/lib/citations";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getJwt, getSession } from "@/lib/session";
-import { analyzeExercise } from "@/lib/catalog";
+import { analyzeExercise, type AnalyzeResult } from "@/lib/catalog";
 import { newtonValidateExercise } from "@/lib/newton";
 
 export const runtime = "nodejs";
@@ -89,43 +87,89 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ─── 2b. Chapitre publié ? (AVANT tout débit et tout appel IA) ─────────
-  // L'admin décide chapitre par chapitre ce qui est ouvert aux élèves. Un
-  // exercice dont le chapitre n'est pas publié pour la série de l'élève reçoit
-  // « Pas encore disponible ». Désactivable avec HINTS_REQUIRE_PUBLISHED=false.
-  if (process.env.HINTS_REQUIRE_PUBLISHED !== "false") {
-    const jwt = await getJwt();
-    let filiere: string | null = null;
+  // ─── 2b. Ce que l'on sait VRAIMENT de cet exercice (gratuit, sans IA) ─
+  // Règle : toujours aider, ne jamais mentir.
+  //   - sujet du bac reconnu + correction validée → on s'appuie dessus (et la
+  //     solution complète EST la correction validée : pas d'IA, pas de débit) ;
+  //   - chapitre publié → aide IA signalée comme telle + vraies années ;
+  //   - sinon → aide IA « non vérifiée », sans aucune référence au bac.
+  const jwt = await getJwt();
+  let filiere: string | null = null;
+  try {
+    filiere = jwt ? ((await me(jwt)).user.bac_filiere ?? null) : null;
+  } catch (e) {
+    console.error("[hint] me() pour la série", e);
+  }
+  let analysis: AnalyzeResult | null = null;
+  if (filiere) {
     try {
-      filiere = jwt ? ((await me(jwt)).user.bac_filiere ?? null) : null;
+      analysis = await analyzeExercise(filiere, `${exercise}\n${correction ?? ""}`.slice(0, 20000));
     } catch (e) {
-      console.error("[hint] me() pour la série", e);
+      console.error("[hint] analyse indisponible — réponse IA non vérifiée", e);
     }
-    if (!filiere) {
-      return NextResponse.json(
-        {
-          error: "Choisis d'abord ta série (C ou D) dans « Mes annales ».",
-          need_filiere: true,
-        },
-        { status: 409 },
-      );
+  }
+  const publishedChapter =
+    analysis && (analysis.status === "matched" || analysis.status === "detected") ? analysis : null;
+  const knownExercise = analysis?.status === "matched" ? analysis.exercise ?? null : null;
+  const verifiedCorrection = knownExercise?.correction ?? null;
+  const examRef = knownExercise
+    ? `Bac ${filiere} ${knownExercise.annee} · session ${/compl/i.test(knownExercise.session) ? "complémentaire" : "normale"} · Exercice ${knownExercise.exercice_numero}`
+    : null;
+  const source: "verified" | "ai_verified_chapter" | "ai" = verifiedCorrection
+    ? "verified"
+    : publishedChapter
+      ? "ai_verified_chapter"
+      : "ai";
+  const isExplain = !!correction?.trim() && correction.trim().length >= 3;
+
+  const banner = (() => {
+    if (source === "verified") {
+      return `> ✅ **Sujet du bac reconnu : ${examRef}.** Cette aide s'appuie sur la correction vérifiée par un professeur.\n\n`;
     }
-    try {
-      const a = await analyzeExercise(filiere, `${exercise}\n${correction ?? ""}`.slice(0, 20000));
-      if (a.status === "not_published") {
-        return NextResponse.json(
-          {
-            error: `Pas encore disponible : le chapitre « ${a.chapitre ?? "de cet exercice"} » est en préparation pour la série ${filiere}.`,
-            not_published: true,
-            chapitre: a.chapitre ?? null,
-          },
-          { status: 403 },
-        );
+    const lines: string[] = [];
+    if (examRef) {
+      lines.push(`✅ **Sujet du bac reconnu : ${examRef}.** Sa correction vérifiée n'est pas encore disponible.`);
+    }
+    lines.push("⚠️ **Réponse générée par l'IA, non vérifiée par un professeur.**");
+    if (publishedChapter) {
+      const years = (publishedChapter.notions ?? [])
+        .filter((n) => n.years.length > 0)
+        .slice(0, 3)
+        .map((n) => `${n.label} (${n.years.join(", ")})`);
+      if (years.length) {
+        lines.push(`Au bac (série ${filiere}), ces notions sont tombées : ${years.join(" · ")}. Retrouve-les dans « Mes annales ».`);
       }
-    } catch (e) {
-      // Service d'analyse indisponible : on ne bloque pas l'élève (fail-open), on trace.
-      console.error("[hint] analyse du chapitre indisponible", e);
+    } else if (analysis?.status === "not_published" && analysis.chapitre) {
+      lines.push(`Les annales vérifiées du chapitre « ${analysis.chapitre} » ne sont pas encore disponibles pour la série ${filiere}.`);
+    } else if (!filiere) {
+      lines.push("Choisis ta série dans « Mes annales » pour retrouver les sujets du bac vérifiés.");
     }
+    return lines.map((l) => `> ${l}`).join("\n>\n") + "\n\n";
+  })();
+
+  const emptyRag = {
+    low_confidence: false,
+    sources_used: [] as string[],
+    citations: { total: 0, unique: 0, valid: 0, invalid: 0, accuracy: 1 },
+  };
+
+  // Solution complète demandée pour un sujet dont on a la correction validée :
+  // on donne la vérité, sans appel IA et sans débit.
+  if (!isExplain && level === 3 && !focusQuestion?.trim() && verifiedCorrection) {
+    return NextResponse.json({
+      hint: banner + verifiedCorrection,
+      level,
+      usage: { prompt: 0, completion: 0, total: 0, model: "verified" },
+      truncated: false,
+      mode: "correct",
+      debited_units: 0,
+      debit_status: "skipped",
+      free_hint_used: false,
+      similar_exam: examRef,
+      source,
+      chapitre: publishedChapter?.chapitre ?? null,
+      rag: emptyRag,
+    });
   }
 
   // ─── 3. Free hint d'abord ; sinon vérification solde MRU ──────────────
@@ -197,33 +241,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── 4. RAG : récupérer les passages les plus pertinents ─────────────
-  // Best-effort : si le rag-service est down, ragSearch renvoie un résultat
-  // vide marqué low_confidence=true et on continue sans contexte. Le hint
-  // reste utile, mais le prompt explique au modèle qu'il doit raisonner sans
-  // s'appuyer sur des extraits (Phase 1 — anti-hallucination).
-  const ragQuery = [
-    focusQuestion?.trim(),
-    correction?.trim(),
-    exercise,
-  ]
-    .filter(Boolean)
-    .join("\n")
-    .slice(0, 2000);
-  const ragResult = await ragSearch({
-    subject: subject.id,
-    query: ragQuery,
-    top_k: 5,
-  });
-  const { text: ragContext, included: ragChunks } = formatChunksForPrompt(
-    ragResult.chunks,
-  );
-  const similarExam = bestExamRef(ragResult.chunks);
-  const lowConfidence = ragResult.low_confidence;
+  // ─── 4. Contexte : UNIQUEMENT du contenu vérifié ─────────────────────
+  // Plus d'extraits de corrigés non vérifiés : ils pouvaient faire citer à
+  // l'IA des sujets ou des années non contrôlés.
+  const ragContext = verifiedCorrection
+    ? [
+        `=== CORRECTION VÉRIFIÉE (${examRef}) ===`,
+        "C'est la correction validée par un professeur pour CET exercice.",
+        "Appuie-toi dessus et ne la contredis jamais.",
+        "",
+        verifiedCorrection,
+        "",
+      ].join("\n")
+    : "";
+  const lowConfidence = false;
+  const honestyRule =
+    source === "verified"
+      ? `\n\nRÈGLE D'HONNÊTETÉ : la seule référence au bac que tu peux citer est « ${examRef} ».`
+      : "\n\nRÈGLE D'HONNÊTETÉ : ne cite AUCUN sujet du bac (année, série, numéro d'exercice), n'affirme jamais qu'un exercice ou une méthode « est tombé au bac » et n'invente aucune source.";
 
   // ─── 5. Appel Groq ────────────────────────────────────────────────────
   const trimmedCorrection = correction?.trim();
-  const isExplainMode = !!trimmedCorrection && trimmedCorrection.length >= 3;
+  const isExplainMode = isExplain;
 
   // ─── 4b. Newton — validation expression math (best-effort) ───────────
   // Pour les exercices de maths, on tente de simplifier une expression LaTeX
@@ -246,7 +285,7 @@ export async function POST(req: NextRequest) {
       ? [
           {
             role: "system" as const,
-            content: buildExplainSystemPrompt(subject, chapter, ragContextFinal, lowConfidence),
+            content: buildExplainSystemPrompt(subject, chapter, ragContextFinal, lowConfidence) + honestyRule,
           },
           {
             role: "user" as const,
@@ -260,7 +299,7 @@ export async function POST(req: NextRequest) {
       : [
           {
             role: "system" as const,
-            content: buildSystemPrompt(subject, chapter, ragContextFinal, lowConfidence),
+            content: buildSystemPrompt(subject, chapter, ragContextFinal, lowConfidence) + honestyRule,
           },
           {
             role: "user" as const,
@@ -311,21 +350,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── 6. Validation des citations RAG (Phase 1 anti-hallucination) ────
-  // On extrait toutes les balises `[#N]` de la réponse, on vérifie qu'elles
-  // pointent vers un chunk effectivement injecté, et on remonte la liste des
-  // sources utilisées pour que l'UI puisse afficher un badge.
-  const citationStats = validateCitations(content, ragChunks);
-  if (citationStats.invalid.length > 0) {
-    console.warn(
-      "[hint] citations invalides — user=%s invalid=%j (modele a inventé une source ?)",
-      session.user_id,
-      citationStats.invalid,
-    );
-  }
-
   return NextResponse.json({
-    hint: content,
+    hint: banner + content,
     level,
     usage,
     truncated: finishReason === "length",
@@ -336,19 +362,11 @@ export async function POST(req: NextRequest) {
     // Free hint info (utile pour la maj UI côté client)
     free_hint_used: freeHintUsed,
     free_hints_remaining: freeHintsRemaining,
-    // Référence d'examen similaire (null si aucun match RAG pertinent)
-    similar_exam: similarExam,
-    // Phase 1 — anti-hallucination
-    rag: {
-      low_confidence: lowConfidence,
-      sources_used: citationStats.sourcesUsed,
-      citations: {
-        total: citationStats.raw.length,
-        unique: citationStats.unique.length,
-        valid: citationStats.valid.length,
-        invalid: citationStats.invalid.length,
-        accuracy: citationStats.accuracy,
-      },
-    },
+    // Référence de bac : seulement un sujet reconnu dans les annales vérifiées
+    similar_exam: examRef,
+    // verified | ai_verified_chapter | ai — l'UI peut l'afficher
+    source,
+    chapitre: publishedChapter?.chapitre ?? null,
+    rag: emptyRag,
   });
 }
