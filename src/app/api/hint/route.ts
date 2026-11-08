@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { unitsForUsage } from "@/lib/billing";
-import { chat } from "@/lib/groq";
+import { chat, DEFAULT_MODEL } from "@/lib/groq";
+import { getCachedHint, hintCacheKey, putCachedHint } from "@/lib/hint-cache";
 import {
   buildExplainSystemPrompt,
   buildExplainUserPrompt,
@@ -172,6 +173,44 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // ─── 2c. Cache : réponse IA déjà générée pour la même demande ─────────
+  // On ne repaie jamais l'IA pour une réponse qu'on a déjà : servie gratuitement,
+  // sans consommer d'indice gratuit. Le bandeau de vérité est recalculé à chaque
+  // fois (il n'est pas dans le cache).
+  const cacheKey = hintCacheKey({
+    exerciseId: knownExercise?.id ?? null,
+    exercise,
+    subjectId: subject.id,
+    chapterId: chapter?.id,
+    level,
+    mode: isExplain ? "explain" : "correct",
+    focusQuestion,
+    treatAll,
+    previousHints,
+    correction: isExplain ? correction : undefined,
+    source,
+    hasVerifiedCorrection: !!verifiedCorrection,
+    model: DEFAULT_MODEL,
+  });
+  const cached = await getCachedHint(cacheKey);
+  if (cached) {
+    return NextResponse.json({
+      hint: banner + cached.content,
+      level,
+      usage: { prompt: 0, completion: 0, total: 0, model: "cache" },
+      truncated: false,
+      mode: isExplain ? "explain" : "correct",
+      debited_units: 0,
+      debit_status: "skipped",
+      free_hint_used: false,
+      cached: true,
+      similar_exam: examRef,
+      source,
+      chapitre: publishedChapter?.chapitre ?? null,
+      rag: emptyRag,
+    });
+  }
+
   // ─── 3. Free hint d'abord ; sinon vérification solde MRU ──────────────
   // Politique : à l'inscription, le user reçoit 10 hints gratuits valides 24h.
   // On les consomme en premier ; après expiration/épuisement, on bascule sur
@@ -321,6 +360,11 @@ export async function POST(req: NextRequest) {
     console.error("Groq error", err);
     const message = err instanceof Error ? err.message : "Erreur inconnue";
     return NextResponse.json({ error: `Erreur Groq: ${message}` }, { status: 500 });
+  }
+
+  // Réponse complète uniquement (une réponse tronquée serait resservie tronquée).
+  if (finishReason !== "length" && content.trim()) {
+    await putCachedHint(cacheKey, { content, model: DEFAULT_MODEL, usage_total: usage?.total ?? 0 });
   }
 
   // ─── 5. Débit du portefeuille après succès Groq (sauf si free hint) ──
