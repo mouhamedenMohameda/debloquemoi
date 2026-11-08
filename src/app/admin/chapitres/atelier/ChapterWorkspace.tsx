@@ -762,6 +762,7 @@ type FullExercise = {
   notion_ids?: string[];
   validated_by_admin?: boolean;
   fichier?: string;
+  note_admin?: string;
 };
 
 function ExerciseEditor({
@@ -858,6 +859,11 @@ function ExerciseEditor({
   return (
     <div className="border-t border-slate-100 px-4 py-3">
       {ex.fichier && <p className="mb-2 text-xs text-slate-500">Source : {ex.fichier}</p>}
+      {ex.note_admin && (
+        <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+          ⚠ À vérifier : {ex.note_admin}
+        </p>
+      )}
 
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">a. Énoncé et correction</p>
       <div className="mb-2 mt-1 flex gap-1">
