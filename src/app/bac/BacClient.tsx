@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 
 import { ChapterView, type ChapterViewData } from "@/components/ChapterView";
 import { MathText } from "@/components/MathText";
+import { useTranslation } from "@/components/LanguageProvider";
 
 type Filiere = "C" | "D";
 
@@ -38,14 +39,15 @@ type AnalyzeResult = {
   other_notions?: { notion_id: string; label: string }[];
 };
 
-const MATIERE_LABEL: Record<string, string> = {
-  math: "Mathématiques",
-  pc: "Sciences Physiques",
-  svt: "Sciences Naturelles",
+const MATIERE_LABEL: Record<"fr" | "ar", Record<string, string>> = {
+  fr: { math: "Mathématiques", pc: "Sciences Physiques", svt: "Sciences Naturelles" },
+  ar: { math: "الرياضيات", pc: "العلوم الفيزيائية", svt: "العلوم الطبيعية" },
 };
 
-function sessionLabel(s: string): string {
-  return /compl/i.test(s) ? "session complémentaire" : "session normale";
+export function sessionLabel(s: string, ar = false): string {
+  const compl = /compl/i.test(s);
+  if (ar) return compl ? "الدورة التكميلية" : "الدورة العادية";
+  return compl ? "session complémentaire" : "session normale";
 }
 
 /** Réduit la photo (côté long ≤ 1600 px, JPEG) : lecture plus rapide et moins chère. */
@@ -72,6 +74,8 @@ async function compressImage(file: File): Promise<string> {
 
 export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }) {
   const router = useRouter();
+  const { locale } = useTranslation();
+  const ar = locale === "ar";
   const [filiere, setFiliere] = useState<Filiere | null>(initialFiliere);
   const [changingFiliere, setChangingFiliere] = useState(false);
   const [text, setText] = useState("");
@@ -114,7 +118,7 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
         body: JSON.stringify({ imageDataUrl }),
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || "Lecture de la photo impossible.");
+      if (!r.ok) throw new Error(d.error || (ar ? "تعذّرت قراءة الصورة." : "Lecture de la photo impossible."));
       setText(d.text || "");
       await analyze(d.text || "");
     } catch (e) {
@@ -127,7 +131,7 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
 
   async function analyze(t: string = text) {
     if (t.trim().length < 10) {
-      setError("Écris ou photographie l'énoncé complet de l'exercice.");
+      setError(ar ? "اكتب أو صوّر نص التمرين كاملاً." : "Écris ou photographie l'énoncé complet de l'exercice.");
       return;
     }
     setBusy("analyze");
@@ -144,7 +148,7 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
         setFiliere(null);
         return;
       }
-      if (!r.ok) throw new Error(d.error || "Erreur, réessaie.");
+      if (!r.ok) throw new Error(d.error || (ar ? "حدث خطأ، أعد المحاولة." : "Erreur, réessaie."));
       setResult(d as AnalyzeResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -169,9 +173,11 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
   if (!filiere || changingFiliere) {
     return (
       <main className="mx-auto max-w-xl px-4 py-12 text-center">
-        <h1 className="text-2xl font-extrabold text-slate-900">Tu es en quelle série ?</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">{ar ? "في أي شعبة أنت؟" : "Tu es en quelle série ?"}</h1>
         <p className="mt-2 text-sm text-slate-600">
-          On te montre les sujets du bac de ta série. Tu pourras la changer plus tard.
+          {ar
+            ? "نعرض لك مواضيع الباكالوريا الخاصة بشعبتك. يمكنك تغييرها لاحقاً."
+            : "On te montre les sujets du bac de ta série. Tu pourras la changer plus tard."}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-3">
           {(["C", "D"] as const).map((f) => (
@@ -179,20 +185,20 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
               key={f}
               disabled={busy === "filiere"}
               onClick={() => saveFiliere(f)}
-              className={`rounded-2xl px-4 py-6 text-left ring-1 transition hover:ring-indigo-400 disabled:opacity-50 ${
+              className={`rounded-2xl px-4 py-6 text-start ring-1 transition hover:ring-indigo-400 disabled:opacity-50 ${
                 filiere === f ? "bg-indigo-50 ring-indigo-400" : "bg-white ring-slate-200"
               }`}
             >
-              <div className="text-2xl font-extrabold text-slate-900">Série {f}</div>
+              <div className="text-2xl font-extrabold text-slate-900">{ar ? `شعبة ${f}` : `Série ${f}`}</div>
               <div className="mt-1 text-xs text-slate-500">
-                {f === "C" ? "Mathématiques" : "Sciences de la nature"}
+                {f === "C" ? (ar ? "الرياضيات" : "Mathématiques") : ar ? "العلوم الطبيعية" : "Sciences de la nature"}
               </div>
             </button>
           ))}
         </div>
         {changingFiliere && (
           <button onClick={() => setChangingFiliere(false)} className="mt-4 text-sm text-slate-500 hover:underline">
-            Annuler
+            {ar ? "إلغاء" : "Annuler"}
           </button>
         )}
         {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
@@ -203,14 +209,15 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-extrabold text-slate-900">📸 Mes annales</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">{ar ? "📸 حولياتي" : "📸 Mes annales"}</h1>
         <button onClick={() => setChangingFiliere(true)} className="text-xs font-semibold text-indigo-600 hover:underline">
-          Série {filiere} · changer
+          {ar ? `شعبة ${filiere} · تغيير` : `Série ${filiere} · changer`}
         </button>
       </div>
       <p className="mt-1 text-sm text-slate-600">
-        Prends ton exercice en photo : on te dit de quel chapitre il s&apos;agit, les notions qu&apos;il utilise et
-        les années où elles sont tombées au bac, avec les corrections et le cours.
+        {ar
+          ? "صوّر تمرينك: نخبرك بالفصل الذي ينتمي إليه، والمفاهيم التي يستعملها، والسنوات التي جاءت فيها في الباكالوريا، مع التصحيحات والدروس."
+          : "Prends ton exercice en photo : on te dit de quel chapitre il s'agit, les notions qu'il utilise et les années où elles sont tombées au bac, avec les corrections et le cours."}
       </p>
 
       {/* ── Énoncé ─────────────────────────────────────────────────────── */}
@@ -228,16 +235,19 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
           onClick={() => fileRef.current?.click()}
           className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-base font-bold text-white shadow hover:bg-indigo-700 disabled:opacity-50"
         >
-          {busy === "ocr" ? "Lecture de la photo…" : "📷 Prendre ou choisir une photo"}
+          {busy === "ocr"
+            ? ar ? "جارٍ قراءة الصورة…" : "Lecture de la photo…"
+            : ar ? "📷 التقط أو اختر صورة" : "📷 Prendre ou choisir une photo"}
         </button>
         <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Ou écris / colle l&apos;énoncé
+          {ar ? "أو اكتب / الصق نص التمرين" : "Ou écris / colle l'énoncé"}
         </p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={text ? 8 : 4}
-          placeholder="Ex. : On pose P(z) = z³ − (5 + 4i)z² + (1 + 16i)z + 3 − 12i…"
+          dir="auto"
+          placeholder={ar ? "مثال: نضع P(z) = z³ − (5 + 4i)z² + (1 + 16i)z + 3 − 12i…" : "Ex. : On pose P(z) = z³ − (5 + 4i)z² + (1 + 16i)z + 3 − 12i…"}
           className="mt-1 w-full rounded-lg border border-slate-200 p-3 text-sm"
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -246,9 +256,9 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
             onClick={() => analyze()}
             className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
           >
-            {busy === "analyze" ? "Recherche…" : "Trouver dans les annales"}
+            {busy === "analyze" ? (ar ? "جارٍ البحث…" : "Recherche…") : ar ? "ابحث في الحوليات" : "Trouver dans les annales"}
           </button>
-          {text && <span className="text-xs text-slate-500">Tu peux corriger le texte lu avant de chercher.</span>}
+          {text && <span className="text-xs text-slate-500">{ar ? "يمكنك تصحيح النص المقروء قبل البحث." : "Tu peux corriger le texte lu avant de chercher."}</span>}
         </div>
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       </section>
@@ -258,23 +268,30 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
         <section className="mt-6">
           {result.status === "not_published" && (
             <div className="rounded-2xl bg-amber-50 p-5 text-center ring-1 ring-amber-200">
-              <div className="text-lg font-bold text-amber-900">Annales pas encore disponibles</div>
+              <div className="text-lg font-bold text-amber-900">{ar ? "الحوليات غير متوفرة بعد" : "Annales pas encore disponibles"}</div>
               <p className="mt-1 text-sm text-amber-800">
-                Cet exercice porte sur <b>{result.chapitre ?? "un chapitre"}</b>. Les sujets du bac, corrections et
-                cours vérifiés de ce chapitre sont en préparation pour la série {filiere}.
+                {ar ? (
+                  <>يتعلق هذا التمرين بـ <b>{result.chapitre ?? "فصل"}</b>. مواضيع الباكالوريا والتصحيحات والدروس المُراجَعة لهذا الفصل قيد الإعداد للشعبة {filiere}.</>
+                ) : (
+                  <>Cet exercice porte sur <b>{result.chapitre ?? "un chapitre"}</b>. Les sujets du bac, corrections et
+                  cours vérifiés de ce chapitre sont en préparation pour la série {filiere}.</>
+                )}
               </p>
               <p className="mt-2 text-sm text-amber-800">
-                Tu peux quand même te faire aider par l&apos;IA : sa réponse ne sera pas vérifiée par un professeur.
+                {ar
+                  ? "يمكنك مع ذلك طلب مساعدة الذكاء الاصطناعي: جوابه لن يكون مُراجَعاً من طرف أستاذ."
+                  : "Tu peux quand même te faire aider par l'IA : sa réponse ne sera pas vérifiée par un professeur."}
               </p>
             </div>
           )}
 
           {result.status === "unknown" && (
             <div className="rounded-2xl bg-slate-50 p-5 text-center ring-1 ring-slate-200">
-              <div className="text-lg font-bold text-slate-900">On n&apos;a pas reconnu cet exercice</div>
+              <div className="text-lg font-bold text-slate-900">{ar ? "لم نتعرف على هذا التمرين" : "On n'a pas reconnu cet exercice"}</div>
               <p className="mt-1 text-sm text-slate-600">
-                Il ne correspond à aucun sujet du bac vérifié. Vérifie que le texte lu correspond bien à
-                l&apos;énoncé, ou fais-toi aider par l&apos;IA (réponse non vérifiée par un professeur).
+                {ar
+                  ? "لا يطابق أي موضوع باكالوريا مُراجَع. تأكد من أن النص المقروء مطابق للتمرين، أو اطلب مساعدة الذكاء الاصطناعي (جواب غير مُراجَع من طرف أستاذ)."
+                  : "Il ne correspond à aucun sujet du bac vérifié. Vérifie que le texte lu correspond bien à l'énoncé, ou fais-toi aider par l'IA (réponse non vérifiée par un professeur)."}
               </p>
             </div>
           )}
@@ -283,7 +300,8 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
             <>
               <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Série {filiere} · {MATIERE_LABEL[result.matiere_id ?? ""] ?? result.matiere_id}
+                  {ar ? `شعبة ${filiere}` : `Série ${filiere}`} ·{" "}
+                  {MATIERE_LABEL[ar ? "ar" : "fr"][result.matiere_id ?? ""] ?? result.matiere_id}
                 </p>
                 <h2 className="text-xl font-extrabold text-slate-900">{result.chapitre}</h2>
                 {(result.notions?.length ?? 0) > 0 && (
@@ -300,8 +318,9 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
               {result.exercise && (
                 <div className="mt-4 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
                   <div className="text-sm font-bold text-emerald-900">
-                    ✅ C&apos;est un sujet du bac : Bac {filiere} {result.exercise.annee} ·{" "}
-                    {sessionLabel(result.exercise.session)} · Exercice {result.exercise.exercice_numero}
+                    {ar
+                      ? `✅ هذا موضوع باكالوريا: باك ${filiere} ${result.exercise.annee} · ${sessionLabel(result.exercise.session, true)} · التمرين ${result.exercise.exercice_numero}`
+                      : `✅ C'est un sujet du bac : Bac ${filiere} ${result.exercise.annee} · ${sessionLabel(result.exercise.session)} · Exercice ${result.exercise.exercice_numero}`}
                   </div>
                   {result.exercise.correction ? (
                     <>
@@ -309,7 +328,9 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
                         onClick={() => setShowCorrection((v) => !v)}
                         className="mt-3 rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
                       >
-                        {showCorrection ? "Masquer la correction" : "Voir la correction"}
+                        {showCorrection
+                          ? ar ? "إخفاء التصحيح" : "Masquer la correction"
+                          : ar ? "عرض التصحيح" : "Voir la correction"}
                       </button>
                       {showCorrection && (
                         <div className="mt-3 rounded-xl bg-white p-3">
@@ -318,14 +339,14 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
                       )}
                     </>
                   ) : (
-                    <p className="mt-1 text-xs text-emerald-800">La correction arrive bientôt.</p>
+                    <p className="mt-1 text-xs text-emerald-800">{ar ? "التصحيح قادم قريباً." : "La correction arrive bientôt."}</p>
                   )}
                 </div>
               )}
 
               {(result.notions?.length ?? 0) > 0 && (
                 <div className="mt-5">
-                  <h3 className="mb-2 text-base font-bold text-slate-900">Les notions de ton exercice au bac</h3>
+                  <h3 className="mb-2 text-base font-bold text-slate-900">{ar ? "مفاهيم تمرينك في الباكالوريا" : "Les notions de ton exercice au bac"}</h3>
                   <ChapterView
                     compact
                     view={{
@@ -340,7 +361,7 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
 
               {(result.other_notions?.length ?? 0) > 0 && (
                 <p className="mt-4 text-xs text-slate-500">
-                  Autres notions du chapitre : {result.other_notions!.map((n) => n.label).join(" · ")}
+                  {ar ? "مفاهيم أخرى من الفصل: " : "Autres notions du chapitre : "}{result.other_notions!.map((n) => n.label).join(" · ")}
                 </p>
               )}
             </>
@@ -349,16 +370,16 @@ export function BacClient({ initialFiliere }: { initialFiliere: Filiere | null }
           <div className="mt-6 rounded-2xl bg-indigo-50 p-4 text-center ring-1 ring-indigo-100">
             <p className="text-sm text-indigo-900">
               {result.status === "matched" && result.exercise?.correction
-                ? "Tu préfères chercher toi-même ? Les indices s'appuient sur la correction vérifiée."
+                ? ar ? "تفضّل البحث بنفسك؟ التلميحات تعتمد على التصحيح المُراجَع." : "Tu préfères chercher toi-même ? Les indices s'appuient sur la correction vérifiée."
                 : result.status === "matched" || result.status === "detected"
-                  ? "Besoin d'aide pour le résoudre ? Les indices sont rédigés par l'IA (non vérifiés)."
-                  : "Aide de l'IA, étape par étape (non vérifiée par un professeur)."}
+                  ? ar ? "تحتاج مساعدة لحله؟ التلميحات يكتبها الذكاء الاصطناعي (غير مُراجَعة)." : "Besoin d'aide pour le résoudre ? Les indices sont rédigés par l'IA (non vérifiés)."
+                  : ar ? "مساعدة الذكاء الاصطناعي خطوة بخطوة (غير مُراجَعة من طرف أستاذ)." : "Aide de l'IA, étape par étape (non vérifiée par un professeur)."}
             </p>
             <button
               onClick={goToHints}
               className="mt-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             >
-              💡 Indices pas à pas
+              {ar ? "💡 تلميحات خطوة بخطوة" : "💡 Indices pas à pas"}
             </button>
           </div>
         </section>

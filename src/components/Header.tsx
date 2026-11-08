@@ -75,6 +75,7 @@ export async function Header() {
 
   const navLabels: Record<string, string> = {
     "/": t.nav.home,
+    "/bac": t.nav.annales,
     "/topup": t.nav.topup,
     "/referrals": t.nav.referrals,
     "/profile": t.nav.profile,

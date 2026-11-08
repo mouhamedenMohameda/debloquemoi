@@ -11,6 +11,7 @@
 import { useState } from "react";
 
 import { MathText } from "@/components/MathText";
+import { useTranslation } from "@/components/LanguageProvider";
 
 export type ChapterViewData = {
   filiere_id: string;
@@ -39,34 +40,42 @@ export type ChapterViewData = {
   }[];
 };
 
-function sessionShort(s: string): string {
-  return /compl/i.test(s) ? "complémentaire" : "normale";
+function sessionLong(s: string, ar: boolean): string {
+  const compl = /compl/i.test(s);
+  if (ar) return compl ? "الدورة التكميلية" : "الدورة العادية";
+  return compl ? "session complémentaire" : "session normale";
 }
 
 function Occurrence({ o }: { o: ChapterViewData["notions"][number]["occurrences"][number] }) {
+  const { locale } = useTranslation();
+  const ar = locale === "ar";
   const [open, setOpen] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   return (
     <div className="rounded-xl ring-1 ring-slate-200">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm"
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-start text-sm"
       >
         <span className="font-semibold text-slate-800">
-          Bac {o.annee} · session {sessionShort(o.session)} · Exercice {o.exercice_numero}
+          {ar
+            ? `باك ${o.annee} · ${sessionLong(o.session, true)} · التمرين ${o.exercice_numero}`
+            : `Bac ${o.annee} · ${sessionLong(o.session, false)} · Exercice ${o.exercice_numero}`}
         </span>
-        <span className="text-xs text-slate-500">{open ? "Masquer" : "Voir"}</span>
+        <span className="text-xs text-slate-500">{open ? (ar ? "إخفاء" : "Masquer") : ar ? "عرض" : "Voir"}</span>
       </button>
       {open && (
         <div className="border-t border-slate-100 px-3 py-3">
-          <MathText text={o.enonce || "_Énoncé indisponible._"} />
+          <MathText text={o.enonce || (ar ? "_النص غير متوفر._" : "_Énoncé indisponible._")} />
           {o.correction ? (
             <div className="mt-3">
               <button
                 onClick={() => setShowCorrection((v) => !v)}
                 className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
               >
-                {showCorrection ? "Masquer la correction" : "Voir la correction"}
+                {showCorrection
+                  ? ar ? "إخفاء التصحيح" : "Masquer la correction"
+                  : ar ? "عرض التصحيح" : "Voir la correction"}
               </button>
               {showCorrection && (
                 <div className="mt-2 rounded-lg bg-slate-50 p-3">
@@ -75,7 +84,7 @@ function Occurrence({ o }: { o: ChapterViewData["notions"][number]["occurrences"
               )}
             </div>
           ) : (
-            <p className="mt-3 text-xs text-slate-500">Correction pas encore disponible.</p>
+            <p className="mt-3 text-xs text-slate-500">{ar ? "التصحيح غير متوفر بعد." : "Correction pas encore disponible."}</p>
           )}
         </div>
       )}
@@ -93,6 +102,8 @@ export function ChapterView({
   /** Replie la liste des exercices de chaque notion derrière un bouton (écran élève mobile). */
   compact?: boolean;
 }) {
+  const { locale } = useTranslation();
+  const ar = locale === "ar";
   const [openLesson, setOpenLesson] = useState<string | null>(null);
   const [openList, setOpenList] = useState<Set<string>>(new Set());
   const toggleList = (id: string) =>
@@ -110,7 +121,7 @@ export function ChapterView({
 
           {n.years.length > 0 ? (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-slate-500">Tombé au bac en</span>
+              <span className="text-xs text-slate-500">{ar ? "جاء في الباكالوريا سنة" : "Tombé au bac en"}</span>
               {n.years.map((y) => (
                 <span key={y} className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
                   {y}
@@ -118,7 +129,7 @@ export function ChapterView({
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-xs text-slate-500">Aucun exercice de bac disponible pour cette notion.</p>
+            <p className="mt-2 text-xs text-slate-500">{ar ? "لا يوجد تمرين باكالوريا متاح لهذا المفهوم." : "Aucun exercice de bac disponible pour cette notion."}</p>
           )}
 
           {adminInfo && n.admin && (
@@ -145,7 +156,7 @@ export function ChapterView({
                 onClick={() => setOpenLesson(openLesson === n.notion_id ? null : n.notion_id)}
                 className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
               >
-                {openLesson === n.notion_id ? "Fermer le cours" : "📖 Lire le cours"}
+                {openLesson === n.notion_id ? (ar ? "إغلاق الدرس" : "Fermer le cours") : ar ? "📖 قراءة الدرس" : "📖 Lire le cours"}
               </button>
               {openLesson === n.notion_id && (
                 <div className="mt-2 rounded-lg bg-slate-50 p-3">
@@ -161,8 +172,10 @@ export function ChapterView({
               className="mt-3 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
             >
               {openList.has(n.notion_id)
-                ? "Masquer les exercices"
-                : `Voir ${n.occurrences.length > 1 ? `les ${n.occurrences.length} exercices` : "l'exercice"}`}
+                ? ar ? "إخفاء التمارين" : "Masquer les exercices"
+                : ar
+                  ? n.occurrences.length > 1 ? `عرض التمارين (${n.occurrences.length})` : "عرض التمرين"
+                  : `Voir ${n.occurrences.length > 1 ? `les ${n.occurrences.length} exercices` : "l'exercice"}`}
             </button>
           )}
           {n.occurrences.length > 0 && (!compact || openList.has(n.notion_id)) && (
@@ -175,7 +188,7 @@ export function ChapterView({
         </section>
       ))}
       {view.notions.length === 0 && (
-        <p className="text-sm text-slate-500">Aucune notion retenue pour ce chapitre.</p>
+        <p className="text-sm text-slate-500">{ar ? "لا توجد مفاهيم محددة لهذا الفصل." : "Aucune notion retenue pour ce chapitre."}</p>
       )}
     </div>
   );

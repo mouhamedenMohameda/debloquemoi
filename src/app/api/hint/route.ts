@@ -20,6 +20,7 @@ import {
 import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
 import { getChapter, getSubject } from "@/lib/subjects";
 import { getJwt, getSession } from "@/lib/session";
+import { getLocaleServer } from "@/lib/i18n";
 import { analyzeExercise, type AnalyzeResult } from "@/lib/catalog";
 import { newtonValidateExercise } from "@/lib/newton";
 
@@ -123,27 +124,58 @@ export async function POST(req: NextRequest) {
       : "ai";
   const isExplain = !!correction?.trim() && correction.trim().length >= 3;
 
+  // Bandeau de vérité dans la langue de l'élève (la référence envoyée à l'IA
+  // reste en français : `examRef`).
+  // Mobile : en-tête X-Locale ; web : cookie NEXT_LOCALE.
+  const headerLocale = req.headers.get("x-locale");
+  const ar = headerLocale ? headerLocale === "ar" : (await getLocaleServer()) === "ar";
+  const examRefShown =
+    knownExercise && ar
+      ? `باك ${filiere} ${knownExercise.annee} · ${/compl/i.test(knownExercise.session) ? "الدورة التكميلية" : "الدورة العادية"} · التمرين ${knownExercise.exercice_numero}`
+      : examRef;
   const banner = (() => {
     if (source === "verified") {
-      return `> ✅ **Sujet du bac reconnu : ${examRef}.** Cette aide s'appuie sur la correction vérifiée par un professeur.\n\n`;
+      return ar
+        ? `> ✅ **موضوع باكالوريا معروف: ${examRefShown}.** تعتمد هذه المساعدة على التصحيح المُراجَع من طرف أستاذ.\n\n`
+        : `> ✅ **Sujet du bac reconnu : ${examRef}.** Cette aide s'appuie sur la correction vérifiée par un professeur.\n\n`;
     }
     const lines: string[] = [];
     if (examRef) {
-      lines.push(`✅ **Sujet du bac reconnu : ${examRef}.** Sa correction vérifiée n'est pas encore disponible.`);
+      lines.push(
+        ar
+          ? `✅ **موضوع باكالوريا معروف: ${examRefShown}.** تصحيحه المُراجَع غير متوفر بعد.`
+          : `✅ **Sujet du bac reconnu : ${examRef}.** Sa correction vérifiée n'est pas encore disponible.`,
+      );
     }
-    lines.push("⚠️ **Réponse générée par l'IA, non vérifiée par un professeur.**");
+    lines.push(
+      ar
+        ? "⚠️ **جواب مولَّد بالذكاء الاصطناعي، غير مُراجَع من طرف أستاذ.**"
+        : "⚠️ **Réponse générée par l'IA, non vérifiée par un professeur.**",
+    );
     if (publishedChapter) {
       const years = (publishedChapter.notions ?? [])
         .filter((n) => n.years.length > 0)
         .slice(0, 3)
         .map((n) => `${n.label} (${n.years.join(", ")})`);
       if (years.length) {
-        lines.push(`Au bac (série ${filiere}), ces notions sont tombées : ${years.join(" · ")}. Retrouve-les dans « Mes annales ».`);
+        lines.push(
+          ar
+            ? `في الباكالوريا (شعبة ${filiere})، جاءت هذه المفاهيم: ${years.join(" · ")}. تجدها في «حولياتي».`
+            : `Au bac (série ${filiere}), ces notions sont tombées : ${years.join(" · ")}. Retrouve-les dans « Mes annales ».`,
+        );
       }
     } else if (analysis?.status === "not_published" && analysis.chapitre) {
-      lines.push(`Les annales vérifiées du chapitre « ${analysis.chapitre} » ne sont pas encore disponibles pour la série ${filiere}.`);
+      lines.push(
+        ar
+          ? `الحوليات المُراجَعة لفصل «${analysis.chapitre}» غير متوفرة بعد للشعبة ${filiere}.`
+          : `Les annales vérifiées du chapitre « ${analysis.chapitre} » ne sont pas encore disponibles pour la série ${filiere}.`,
+      );
     } else if (!filiere) {
-      lines.push("Choisis ta série dans « Mes annales » pour retrouver les sujets du bac vérifiés.");
+      lines.push(
+        ar
+          ? "اختر شعبتك في «حولياتي» لتجد مواضيع الباكالوريا المُراجَعة."
+          : "Choisis ta série dans « Mes annales » pour retrouver les sujets du bac vérifiés.",
+      );
     }
     return lines.map((l) => `> ${l}`).join("\n>\n") + "\n\n";
   })();
