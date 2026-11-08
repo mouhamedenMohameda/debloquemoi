@@ -12,6 +12,7 @@ import {
 import {
   AuthApiError,
   freeHintConsume,
+  me,
   walletDebit,
   walletInfo,
 } from "@/lib/auth-api";
@@ -19,7 +20,8 @@ import { MIN_HINT_BALANCE_MRU } from "@/lib/pricing";
 import { bestExamRef, formatChunksForPrompt, ragSearch } from "@/lib/rag";
 import { validateCitations } from "@/lib/citations";
 import { getChapter, getSubject } from "@/lib/subjects";
-import { getSession } from "@/lib/session";
+import { getJwt, getSession } from "@/lib/session";
+import { analyzeExercise } from "@/lib/catalog";
 import { newtonValidateExercise } from "@/lib/newton";
 
 export const runtime = "nodejs";
@@ -85,6 +87,45 @@ export async function POST(req: NextRequest) {
       { error: "GROQ_API_KEY manquante (config serveur)." },
       { status: 500 },
     );
+  }
+
+  // ─── 2b. Chapitre publié ? (AVANT tout débit et tout appel IA) ─────────
+  // L'admin décide chapitre par chapitre ce qui est ouvert aux élèves. Un
+  // exercice dont le chapitre n'est pas publié pour la série de l'élève reçoit
+  // « Pas encore disponible ». Désactivable avec HINTS_REQUIRE_PUBLISHED=false.
+  if (process.env.HINTS_REQUIRE_PUBLISHED !== "false") {
+    const jwt = await getJwt();
+    let filiere: string | null = null;
+    try {
+      filiere = jwt ? ((await me(jwt)).user.bac_filiere ?? null) : null;
+    } catch (e) {
+      console.error("[hint] me() pour la série", e);
+    }
+    if (!filiere) {
+      return NextResponse.json(
+        {
+          error: "Choisis d'abord ta série (C ou D) dans « Mes annales ».",
+          need_filiere: true,
+        },
+        { status: 409 },
+      );
+    }
+    try {
+      const a = await analyzeExercise(filiere, `${exercise}\n${correction ?? ""}`.slice(0, 20000));
+      if (a.status === "not_published") {
+        return NextResponse.json(
+          {
+            error: `Pas encore disponible : le chapitre « ${a.chapitre ?? "de cet exercice"} » est en préparation pour la série ${filiere}.`,
+            not_published: true,
+            chapitre: a.chapitre ?? null,
+          },
+          { status: 403 },
+        );
+      }
+    } catch (e) {
+      // Service d'analyse indisponible : on ne bloque pas l'élève (fail-open), on trace.
+      console.error("[hint] analyse du chapitre indisponible", e);
+    }
   }
 
   // ─── 3. Free hint d'abord ; sinon vérification solde MRU ──────────────
