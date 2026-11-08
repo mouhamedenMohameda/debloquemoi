@@ -19,7 +19,10 @@ function client(): Groq {
 // Modèle de raisonnement : GPT-OSS-120B d'OpenAI (open weights, servi par Groq).
 // MoE 120B paramètres — très solide en maths et raisonnement.
 export const DEFAULT_MODEL = "openai/gpt-oss-120b";
-export const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+// Modèle vision (OCR des photos). Llama 4 Scout a été retiré par Groq (17/07/2026) :
+// remplacé par Qwen3.8-27B (multimodal). Surchargeable via GROQ_VISION_MODEL pour
+// changer de modèle sans redéployer le code.
+export const VISION_MODEL = process.env.GROQ_VISION_MODEL || "qwen/qwen3.8-27b";
 
 // Retire les blocs <think>...</think> émis par les modèles de raisonnement.
 function stripThinking(text: string): string {
@@ -89,7 +92,10 @@ export async function extractTextFromImage(
   const completion = await client().chat.completions.create({
     model: VISION_MODEL,
     temperature: 0,
-    max_completion_tokens: 800,
+    // Un énoncé complet de bac en LaTeX dépasse parfois 800 tokens.
+    max_completion_tokens: 1500,
+    // Transcription pure : pas de raisonnement (moins cher, pas de <think> dans le texte).
+    reasoning_effort: "none",
     messages: [
       {
         role: "user",
@@ -111,7 +117,7 @@ Transcris fidèlement le texte de l'image ci-dessous (énoncé d'un exercice de 
     ],
   });
   return {
-    text: completion.choices[0]?.message?.content?.trim() ?? "",
+    text: stripThinking(completion.choices[0]?.message?.content ?? ""),
     usage: toUsage(completion.usage, VISION_MODEL),
   };
 }

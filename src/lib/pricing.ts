@@ -26,8 +26,10 @@ type ModelPrice = {
 const PRICES: Record<string, ModelPrice> = {
   // GPT-OSS-120B (open weights, raisonnement) — tarifs Groq
   [DEFAULT_MODEL]: { inputPerMillion: 0.15, outputPerMillion: 0.6 },
-  // Llama 4 Scout (vision OCR)
-  [VISION_MODEL]: { inputPerMillion: 0.11, outputPerMillion: 0.34 },
+  // Qwen3.8-27B (vision OCR, preview Groq) — tarifs Groq nov. 2026
+  "qwen/qwen3.8-27b": { inputPerMillion: 0.8, outputPerMillion: 4.0 },
+  // Llama 4 Scout (ancien modèle vision, retiré le 17/07/2026)
+  "meta-llama/llama-4-scout-17b-16e-instruct": { inputPerMillion: 0.11, outputPerMillion: 0.34 },
   // Anciens modèles encore listés au cas où
   "llama-3.3-70b-versatile": { inputPerMillion: 0.59, outputPerMillion: 0.79 },
   "deepseek-r1-distill-llama-70b": {
