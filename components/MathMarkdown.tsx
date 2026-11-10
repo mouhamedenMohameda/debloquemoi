@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { View } from "react-native";
 import { WebView } from "react-native-webview";
 import { sanitizeLatex, KATEX_MACROS } from "@/lib/latex-sanitize";
+import { API_URL } from "@/lib/config";
 
 /**
  * Rend un Markdown contenant du LaTeX ($...$ et $$...$$) dans un WebView avec
@@ -28,7 +29,8 @@ export function MathMarkdown({ markdown }: { markdown: string }) {
   return (
     <View style={{ height, width: "100%" }}>
       <WebView
-        source={{ html }}
+        // baseUrl : les figures des énoncés (/static/figures/…) sont servies par l'app web.
+        source={{ html, baseUrl: API_URL }}
         originWhitelist={["*"]}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
@@ -114,6 +116,7 @@ function buildHtml(markdown: string): string {
   .katex-display { margin: 8px 0 12px; overflow-x: auto; overflow-y: hidden; }
   /* Expression LaTeX cassée : affichée en rouge plutôt que de planter. */
   .katex-error { color: #dc2626; }
+  img { display: block; max-width: 100%; height: auto; margin: 8px auto 12px; }
 </style>
 </head>
 <body>
