@@ -98,6 +98,16 @@ export function MathText({ text }: { text: string }) {
               );
             },
             hr: () => <hr className="my-4 border-slate-200" />,
+            // Figures des énoncés (servies depuis public/static/figures/…).
+            img: ({ src, alt }) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={typeof src === "string" ? src : undefined}
+                alt={alt ?? ""}
+                loading="lazy"
+                className="mx-auto my-3 block h-auto max-w-full rounded-lg border border-slate-200 bg-white"
+              />
+            ),
             table: ({ children }) => (
               <div className="my-3 overflow-x-auto">
                 <table className="min-w-full border-collapse text-sm">
